@@ -1062,32 +1062,229 @@ html, body, #root {
   cursor: grabbing;
 }
 
-.widget-drag-handle {
+.widget-edit-bar {
   position: absolute;
-  top: -10px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 11;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.edit-mode .widget-edit-bar {
+  opacity: 1;
+}
+
+.widget-drag-handle {
   width: 28px;
-  height: 16px;
-  border-radius: 8px;
+  height: 18px;
+  border-radius: 9px;
   background: var(--accent);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.edit-mode .widget-drag-handle {
-  opacity: 1;
 }
 
 .widget-drag-handle svg {
   width: 14px;
   height: 14px;
+}
+
+.widget-settings-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.widget-settings-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.widget-settings-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ==================== WIDGET SETTINGS POPOVER ==================== */
+
+.widget-settings-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 10px;
+  width: 260px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 14px;
+  z-index: 20;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.widget-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.widget-settings-header span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.widget-settings-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.widget-settings-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.widget-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.widget-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.widget-settings-field label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.widget-settings-field input[type="text"],
+.widget-settings-field input[type="color"] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  outline: none;
+}
+
+.widget-settings-field input[type="color"] {
+  padding: 2px;
+  height: 32px;
+  cursor: pointer;
+}
+
+.widget-settings-field .slider-row {
+  gap: 8px;
+}
+
+.widget-settings-field .slider-row .slider-value {
+  min-width: 36px;
+  font-size: 0.8rem;
+}
+
+/* ==================== CUSTOM CSS & WIDGET STYLES IN SETTINGS ==================== */
+
+.custom-css-textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  outline: none;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.widget-styles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.widget-style-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.widget-style-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.widget-style-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.widget-style-quick .widget-settings-field.compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.widget-style-quick .widget-settings-field.compact label {
+  min-width: 64px;
+  margin: 0;
+}
+
+.widget-style-quick .widget-settings-field.compact input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.widget-style-quick .widget-settings-field.compact .slider-row {
+  flex: 1;
 }
 
 /* ==================== SNAP GUIDES ==================== */

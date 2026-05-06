@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import JSZip from 'jszip';
 import { storeSet, storeGet, storeDelete, migrateFromLocalStorage } from './store';
 import './App.css';
 
@@ -8,17 +9,40 @@ import './App.css';
    ============================================================ */
 
 interface Pos { x: number; y: number }
+
+interface WidgetStyle {
+  fontSize?: string;
+  color?: string;
+  opacity?: number;
+  scale?: number;
+  padding?: string;
+  gap?: string;
+  borderRadius?: number;
+  background?: string;
+  borderColor?: string;
+  backdropBlur?: number;
+  fontWeight?: number;
+  letterSpacing?: string;
+  textShadow?: string;
+  lineHeight?: string;
+  customCss?: string;
+}
+
 interface Theme {
   bgDeep: string; bgPrimary: string; bgSecondary: string;
   textPrimary: string; textSecondary: string; textDim: string;
   accent: string; accentHover: string;
   glassBg: string; glassBorder: string;
   panelBlur: number; clockSize: string; radius: number;
+  widgetStyles: Record<string, Partial<WidgetStyle>>;
+  customCss: string;
 }
+
 interface Visibility {
   weather: boolean; calendar: boolean; settingsButtons: boolean;
   clock: boolean; date: boolean; nowPlaying: boolean; timer: boolean;
 }
+
 interface Preset {
   id: string; name: string;
   backgroundType: 'youtube' | 'image';
@@ -41,6 +65,8 @@ const DEFAULT_THEME: Theme = {
   accent: '#22C55E', accentHover: '#16A34A',
   glassBg: 'rgba(15, 23, 42, 0.45)', glassBorder: 'rgba(255, 255, 255, 0.08)',
   panelBlur: 24, clockSize: 'clamp(5.5rem, 13vw, 9.5rem)', radius: 16,
+  widgetStyles: {},
+  customCss: '',
 };
 
 const DEFAULT_POSITIONS: Record<string, Pos> = {
@@ -199,6 +225,10 @@ function App() {
   /* --- theme --- */
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
 
+  /* --- widget settings popover --- */
+  const [activeWidgetSettings, setActiveWidgetSettings] = useState<string | null>(null);
+  const widgetSettingsRef = useRef<HTMLDivElement>(null);
+
   /* ==========================================================
      PERSISTENCE
      ========================================================== */
@@ -236,7 +266,15 @@ function App() {
       if (ts !== null) setTimerSeconds(ts);
       if (tt !== null) setTimerTotal(tt);
       const thm = await storeGet<Theme>('theme');
-      if (thm) setTheme(thm);
+      if (thm) {
+        // Migrate old themes without new fields
+        setTheme({
+          ...DEFAULT_THEME,
+          ...thm,
+          widgetStyles: thm.widgetStyles || {},
+          customCss: thm.customCss || '',
+        });
+      }
       const pr = await loadPresets();
       setPresets(pr);
       const ap = await loadActivePreset();
@@ -264,6 +302,70 @@ function App() {
     r.style.setProperty('--clock-size', theme.clockSize);
     r.style.setProperty('--radius', `${theme.radius}px`);
   }, [theme]);
+
+  // Inject custom CSS
+  useEffect(() => {
+    let styleEl = document.getElementById('wokyis-custom-css') as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'wokyis-custom-css';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = theme.customCss || '';
+  }, [theme.customCss]);
+
+  const updateWidgetStyle = (key: string, updates: Partial<WidgetStyle>) => {
+    setTheme((prev) => ({
+      ...prev,
+      widgetStyles: {
+        ...prev.widgetStyles,
+        [key]: { ...prev.widgetStyles[key], ...updates },
+      },
+    }));
+  };
+
+  const getWidgetInlineStyle = (key: string): React.CSSProperties => {
+    const s = theme.widgetStyles[key];
+    if (!s) return {};
+    const style: React.CSSProperties = {};
+    if (s.opacity !== undefined) style.opacity = s.opacity;
+    if (s.scale !== undefined) style.transform = `translate(-50%, -50%) scale(${s.scale})`;
+    return style;
+  };
+
+  // Generate per-widget CSS and inject it
+  useEffect(() => {
+    let styleEl = document.getElementById('wokyis-widget-styles') as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'wokyis-widget-styles';
+      document.head.appendChild(styleEl);
+    }
+    let css = '';
+    Object.entries(theme.widgetStyles).forEach(([key, s]) => {
+      if (!s || Object.keys(s).length === 0) return;
+      const selector = `[data-widget="${key}"]`;
+      const inner = `${selector} .glass-panel, ${selector} .clock, ${selector} .date-text, ${selector} .timer-wrapper, ${selector} .settings-buttons-row`;
+      const text = `${selector}, ${selector} .glass-panel, ${selector} .clock, ${selector} .date-text, ${selector} .weather-temp, ${selector} .weather-desc, ${selector} .location-name, ${selector} .calendar-text, ${selector} .np-text, ${selector} .timer-text, ${selector} .preset-btn`;
+
+      if (s.fontSize) css += `${text} { font-size: ${s.fontSize} !important; }\n`;
+      if (s.color) css += `${text} { color: ${s.color} !important; }\n`;
+      if (s.fontWeight) css += `${text} { font-weight: ${s.fontWeight} !important; }\n`;
+      if (s.letterSpacing) css += `${text} { letter-spacing: ${s.letterSpacing} !important; }\n`;
+      if (s.textShadow) css += `${text} { text-shadow: ${s.textShadow} !important; }\n`;
+      if (s.lineHeight) css += `${text} { line-height: ${s.lineHeight} !important; }\n`;
+      if (s.padding) css += `${inner} { padding: ${s.padding} !important; }\n`;
+      if (s.gap) css += `${inner} { gap: ${s.gap} !important; }\n`;
+      if (s.borderRadius !== undefined) css += `${inner} { border-radius: ${s.borderRadius}px !important; }\n`;
+      if (s.background) css += `${inner} { background: ${s.background} !important; }\n`;
+      if (s.borderColor) css += `${inner} { border-color: ${s.borderColor} !important; }\n`;
+      if (s.backdropBlur !== undefined) css += `${inner} { backdrop-filter: blur(${s.backdropBlur}px) !important; -webkit-backdrop-filter: blur(${s.backdropBlur}px) !important; }\n`;
+      if (s.opacity !== undefined) css += `${selector} { opacity: ${s.opacity} !important; }\n`;
+      if (s.scale !== undefined) css += `${selector} { transform: translate(-50%, -50%) scale(${s.scale}) !important; }\n`;
+      if (s.customCss) css += `${selector} { ${s.customCss} }\n`;
+    });
+    styleEl.textContent = css;
+  }, [theme.widgetStyles]);
 
   /* ==========================================================
      CLOCK
@@ -309,6 +411,16 @@ function App() {
       autoHideTimerRef.current = window.setTimeout(() => setUiHidden(true), autoHideDelay * 1000);
     }
   }, [autoHideEnabled, autoHideDelay, showSettings, editLayoutMode]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (activeWidgetSettings && widgetSettingsRef.current && !widgetSettingsRef.current.contains(e.target as Node)) {
+        setActiveWidgetSettings(null);
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [activeWidgetSettings]);
 
   useEffect(() => {
     if (!autoHideEnabled || showSettings || editLayoutMode) { setUiHidden(false); if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); return; }
@@ -411,6 +523,8 @@ function App() {
      ========================================================== */
   const startDrag = (e: React.MouseEvent, key: string) => {
     if (!editLayoutMode) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea, select, a, .widget-settings-popover')) return;
     e.preventDefault();
     e.stopPropagation();
     const container = contentRef.current!;
@@ -563,6 +677,77 @@ function App() {
   };
 
   /* ==========================================================
+     ZIP THEME EXPORT / IMPORT
+     ========================================================== */
+  const exportThemeZip = async () => {
+    const zip = new JSZip();
+    const themeJson = JSON.stringify(theme, null, 2);
+    zip.file('theme.json', themeJson);
+    zip.file('custom.css', theme.customCss || '/* Add your custom CSS here */\n');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'wokyis-theme.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importThemeZip = async (file: File) => {
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const themeJson = await zip.file('theme.json')?.async('string');
+      const customCss = await zip.file('custom.css')?.async('string');
+      if (!themeJson) { alert('theme.json not found in zip'); return; }
+      const parsed = JSON.parse(themeJson) as Theme;
+      const merged: Theme = {
+        ...DEFAULT_THEME,
+        ...parsed,
+        widgetStyles: parsed.widgetStyles || {},
+        customCss: customCss ?? parsed.customCss ?? '',
+      };
+      setTheme(merged);
+      await storeSet('theme', merged);
+    } catch { alert('Invalid theme zip file'); }
+  };
+
+  const exportPresetZip = async (preset: Preset) => {
+    const zip = new JSZip();
+    zip.file('preset.json', JSON.stringify(preset, null, 2));
+    zip.file('theme.json', JSON.stringify(preset.theme, null, 2));
+    zip.file('custom.css', preset.theme.customCss || '/* Add your custom CSS here */\n');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wokyis-preset-${preset.name.replace(/\s+/g, '-').toLowerCase()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importPresetZip = async (file: File) => {
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const presetJson = await zip.file('preset.json')?.async('string');
+      const themeJson = await zip.file('theme.json')?.async('string');
+      const customCss = await zip.file('custom.css')?.async('string');
+      if (!presetJson) { alert('preset.json not found in zip'); return; }
+      const parsed = JSON.parse(presetJson) as Preset;
+      parsed.id = genId();
+      if (themeJson) {
+        const thm = JSON.parse(themeJson) as Theme;
+        parsed.theme = { ...DEFAULT_THEME, ...thm, widgetStyles: thm.widgetStyles || {}, customCss: customCss ?? thm.customCss ?? '' };
+      } else if (customCss) {
+        parsed.theme = { ...DEFAULT_THEME, ...(parsed.theme || {}), customCss };
+      } else {
+        parsed.theme = { ...DEFAULT_THEME, ...(parsed.theme || {}) };
+      }
+      const next = [...presets, parsed];
+      setPresets(next); await savePresets(next);
+    } catch { alert('Invalid preset zip file'); }
+  };
+
+  /* ==========================================================
      SAVE SETTINGS
      ========================================================== */
   const saveSettings = async () => {
@@ -585,11 +770,11 @@ function App() {
   const toggleFocusMode = () => setFocusMode((f) => !f);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setShowSettings(false); setEditLayoutMode(false); }
+      if (e.key === 'Escape') { setShowSettings(false); setEditLayoutMode(false); setActiveWidgetSettings(null); }
       if (e.metaKey || e.ctrlKey) {
         if (e.key === ',') { e.preventDefault(); setShowSettings((s) => !s); }
         if (e.key === 'f') { e.preventDefault(); toggleFocusMode(); }
-        if (e.key === 'e') { e.preventDefault(); setEditLayoutMode((m) => !m); }
+        if (e.key === 'e') { e.preventDefault(); setEditLayoutMode((m) => !m); setActiveWidgetSettings(null); }
       }
     };
     window.addEventListener('keydown', handler);
@@ -631,15 +816,107 @@ function App() {
     const pos = positions[widgetKey] || DEFAULT_POSITIONS[widgetKey];
     const vis = visibility[widgetKey as keyof Visibility];
     if (!vis) return null;
+    const inline = getWidgetInlineStyle(widgetKey);
+    const isEditing = activeWidgetSettings === widgetKey;
+    const ws = theme.widgetStyles[widgetKey] || {};
+
     return (
       <div
+        data-widget={widgetKey}
         className={`widget-wrapper ${editLayoutMode ? 'edit-mode' : ''} ${uiHidden && widgetKey !== 'clock' && widgetKey !== 'date' && widgetKey !== 'weather' ? 'ui-hideable' : ''} ${className}`}
-        style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+        style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...inline }}
         onMouseDown={(e) => startDrag(e, widgetKey)}
       >
         {editLayoutMode && (
-          <div className="widget-drag-handle" title="Drag to move">
-            <IconMove />
+          <div className="widget-edit-bar">
+            <div className="widget-drag-handle" title="Drag to move">
+              <IconMove />
+            </div>
+            <button className="widget-settings-btn" title="Widget Settings" onClick={(e) => { e.stopPropagation(); setActiveWidgetSettings(isEditing ? null : widgetKey); }}>
+              <Ico d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" w={14} />
+            </button>
+          </div>
+        )}
+        {isEditing && editLayoutMode && (
+          <div className="widget-settings-popover" ref={widgetSettingsRef} onClick={(e) => e.stopPropagation()}>
+            <div className="widget-settings-header">
+              <span>{widgetKey.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())} Settings</span>
+              <button className="widget-settings-close" onClick={() => setActiveWidgetSettings(null)}><IconX /></button>
+            </div>
+            <div className="widget-settings-body">
+              <div className="widget-settings-field">
+                <label>Font Size</label>
+                <input type="text" value={ws.fontSize || ''} placeholder="e.g. 1.2rem" onChange={(e) => updateWidgetStyle(widgetKey, { fontSize: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Color</label>
+                <input type="color" value={ws.color || theme.textPrimary} onChange={(e) => updateWidgetStyle(widgetKey, { color: e.target.value })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Opacity</label>
+                <div className="slider-row">
+                  <input type="range" min="0" max="1" step="0.05" value={ws.opacity ?? 1} onChange={(e) => updateWidgetStyle(widgetKey, { opacity: parseFloat(e.target.value) })} className="slider" />
+                  <span className="slider-value">{Math.round((ws.opacity ?? 1) * 100)}%</span>
+                </div>
+              </div>
+              <div className="widget-settings-field">
+                <label>Scale</label>
+                <div className="slider-row">
+                  <input type="range" min="0.5" max="2" step="0.05" value={ws.scale ?? 1} onChange={(e) => updateWidgetStyle(widgetKey, { scale: parseFloat(e.target.value) })} className="slider" />
+                  <span className="slider-value">{(ws.scale ?? 1).toFixed(2)}x</span>
+                </div>
+              </div>
+              <div className="widget-settings-field">
+                <label>Padding</label>
+                <input type="text" value={ws.padding || ''} placeholder="e.g. 14px 22px" onChange={(e) => updateWidgetStyle(widgetKey, { padding: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Gap</label>
+                <input type="text" value={ws.gap || ''} placeholder="e.g. 12px" onChange={(e) => updateWidgetStyle(widgetKey, { gap: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Border Radius</label>
+                <div className="slider-row">
+                  <input type="range" min="0" max="40" value={ws.borderRadius ?? theme.radius} onChange={(e) => updateWidgetStyle(widgetKey, { borderRadius: parseInt(e.target.value) })} className="slider" />
+                  <span className="slider-value">{ws.borderRadius ?? theme.radius}px</span>
+                </div>
+              </div>
+              <div className="widget-settings-field">
+                <label>Background</label>
+                <input type="text" value={ws.background || ''} placeholder="e.g. rgba(0,0,0,0.5)" onChange={(e) => updateWidgetStyle(widgetKey, { background: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Border Color</label>
+                <input type="text" value={ws.borderColor || ''} placeholder="e.g. rgba(255,255,255,0.1)" onChange={(e) => updateWidgetStyle(widgetKey, { borderColor: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Backdrop Blur</label>
+                <div className="slider-row">
+                  <input type="range" min="0" max="60" value={ws.backdropBlur ?? theme.panelBlur} onChange={(e) => updateWidgetStyle(widgetKey, { backdropBlur: parseInt(e.target.value) })} className="slider" />
+                  <span className="slider-value">{ws.backdropBlur ?? theme.panelBlur}px</span>
+                </div>
+              </div>
+              <div className="widget-settings-field">
+                <label>Font Weight</label>
+                <div className="slider-row">
+                  <input type="range" min="100" max="900" step="100" value={ws.fontWeight ?? 400} onChange={(e) => updateWidgetStyle(widgetKey, { fontWeight: parseInt(e.target.value) })} className="slider" />
+                  <span className="slider-value">{ws.fontWeight ?? 400}</span>
+                </div>
+              </div>
+              <div className="widget-settings-field">
+                <label>Letter Spacing</label>
+                <input type="text" value={ws.letterSpacing || ''} placeholder="e.g. 0.02em" onChange={(e) => updateWidgetStyle(widgetKey, { letterSpacing: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Text Shadow</label>
+                <input type="text" value={ws.textShadow || ''} placeholder="e.g. 0 2px 8px rgba(0,0,0,0.5)" onChange={(e) => updateWidgetStyle(widgetKey, { textShadow: e.target.value || undefined })} />
+              </div>
+              <div className="widget-settings-field">
+                <label>Line Height</label>
+                <input type="text" value={ws.lineHeight || ''} placeholder="e.g. 1.4" onChange={(e) => updateWidgetStyle(widgetKey, { lineHeight: e.target.value || undefined })} />
+              </div>
+              <button className="btn-link" onClick={() => updateWidgetStyle(widgetKey, {})}>Reset Widget Styles</button>
+            </div>
           </div>
         )}
         {children}
@@ -725,7 +1002,7 @@ function App() {
             <button className="glass-icon-btn" onClick={toggleFocusMode} title="Toggle Focus Mode (⌘F)">
               {focusMode ? <IconFocusOff /> : <IconFocus />}
             </button>
-            <button className="glass-icon-btn" onClick={() => setEditLayoutMode((m) => !m)} title="Toggle Layout Editor (⌘E)">
+            <button className="glass-icon-btn" onClick={() => { setEditLayoutMode((m) => !m); setActiveWidgetSettings(null); }} title="Toggle Layout Editor (⌘E)">
               {editLayoutMode ? <IconCheck /> : <IconLayout />}
             </button>
             <button className="glass-icon-btn" onClick={() => setShowSettings((s) => !s)} title="Settings (⌘,)">
@@ -913,7 +1190,7 @@ function App() {
                   <div className="settings-field">
                     <label>Mode</label>
                     <div className="toggle-row">
-                      <button className={`toggle-btn ${!editLayoutMode ? 'active' : ''}`} onClick={() => setEditLayoutMode(false)}>View</button>
+                      <button className={`toggle-btn ${!editLayoutMode ? 'active' : ''}`} onClick={() => { setEditLayoutMode(false); setActiveWidgetSettings(null); }}>View</button>
                       <button className={`toggle-btn ${editLayoutMode ? 'active' : ''}`} onClick={() => setEditLayoutMode(true)}>Edit</button>
                     </div>
                     <p className="hint">In Edit mode, drag elements anywhere on screen. They snap to grid lines. Press ⌘E to toggle.</p>
@@ -975,6 +1252,7 @@ function App() {
                             <>
                               <button className="preset-card-name" onClick={() => applyPreset(p)}>{p.name}</button>
                               <div className="preset-card-actions">
+                                <button className="preset-card-btn" onClick={(e) => { e.stopPropagation(); exportPresetZip(p); }} title="Export Zip"><IconDownload /></button>
                                 <button className="preset-card-btn" onClick={(e) => startRename(p, e)} title="Rename"><IconPencil /></button>
                                 <button className="preset-card-btn" onClick={(e) => startEditJson(p, e)} title="Edit JSON"><IconSettings /></button>
                                 <button className="preset-card-btn delete" onClick={(e) => deletePreset(p.id, e)} title="Delete"><IconTrash /></button>
@@ -1000,10 +1278,14 @@ function App() {
                   <div className="settings-field">
                     <label>Transfer</label>
                     <div className="preset-actions">
-                      <button className="icon-text-btn" onClick={exportPresets}><IconDownload /> Export</button>
+                      <button className="icon-text-btn" onClick={exportPresets}><IconDownload /> Export JSON</button>
                       <label className="icon-text-btn file-label">
-                        <IconUpload /> Import
+                        <IconUpload /> Import JSON
                         <input type="file" accept=".json" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) importPresets(e.target.files[0]); }} />
+                      </label>
+                      <label className="icon-text-btn file-label">
+                        <IconUpload /> Import Zip
+                        <input type="file" accept=".zip" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) importPresetZip(e.target.files[0]); }} />
                       </label>
                     </div>
                   </div>
@@ -1029,6 +1311,51 @@ function App() {
                       <div className="slider-row"><span className="slider-label">Blur</span><input type="range" min="0" max="60" value={theme.panelBlur} onChange={(e) => setTheme((t) => ({ ...t, panelBlur: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.panelBlur}px</span></div>
                       <div className="slider-row"><span className="slider-label">Radius</span><input type="range" min="0" max="32" value={theme.radius} onChange={(e) => setTheme((t) => ({ ...t, radius: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.radius}px</span></div>
                       <div className="slider-row"><span className="slider-label">Clock</span><input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" /><span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span></div>
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <label>Custom CSS</label>
+                    <textarea className="custom-css-textarea" value={theme.customCss} onChange={(e) => setTheme((t) => ({ ...t, customCss: e.target.value }))} rows={6} placeholder="/* Write custom CSS here */" />
+                    <p className="hint">Custom CSS is injected globally. Use selectors like [data-widget=&quot;clock&quot;] to target widgets.</p>
+                  </div>
+                  <div className="settings-field">
+                    <label>Widget Styles</label>
+                    <div className="widget-styles-list">
+                      {(Object.keys(visibility) as Array<keyof Visibility>).map((key) => (
+                        <div key={key} className="widget-style-card">
+                          <span className="widget-style-name">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
+                          <div className="widget-style-quick">
+                            <div className="widget-settings-field compact">
+                              <label>Font Size</label>
+                              <input type="text" value={theme.widgetStyles[key]?.fontSize || ''} placeholder="auto" onChange={(e) => updateWidgetStyle(key, { fontSize: e.target.value || undefined })} />
+                            </div>
+                            <div className="widget-settings-field compact">
+                              <label>Scale</label>
+                              <div className="slider-row">
+                                <input type="range" min="0.5" max="2" step="0.05" value={theme.widgetStyles[key]?.scale ?? 1} onChange={(e) => updateWidgetStyle(key, { scale: parseFloat(e.target.value) })} className="slider" />
+                                <span className="slider-value">{(theme.widgetStyles[key]?.scale ?? 1).toFixed(2)}x</span>
+                              </div>
+                            </div>
+                            <div className="widget-settings-field compact">
+                              <label>Opacity</label>
+                              <div className="slider-row">
+                                <input type="range" min="0" max="1" step="0.05" value={theme.widgetStyles[key]?.opacity ?? 1} onChange={(e) => updateWidgetStyle(key, { opacity: parseFloat(e.target.value) })} className="slider" />
+                                <span className="slider-value">{Math.round((theme.widgetStyles[key]?.opacity ?? 1) * 100)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <label>Theme Transfer</label>
+                    <div className="preset-actions">
+                      <button className="icon-text-btn" onClick={exportThemeZip}><IconDownload /> Export Theme Zip</button>
+                      <label className="icon-text-btn file-label">
+                        <IconUpload /> Import Theme Zip
+                        <input type="file" accept=".zip" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) importThemeZip(e.target.files[0]); }} />
+                      </label>
                     </div>
                   </div>
                   <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset to default theme</button>
