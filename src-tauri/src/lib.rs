@@ -121,6 +121,97 @@ fn open_location_settings() -> Result<(), String> {
 }
 
 /* ============================================================
+   THEME FILE MANAGEMENT
+   ============================================================ */
+
+fn themes_dir_path() -> PathBuf {
+    let mut path = dirs::config_dir().expect("Failed to get config dir");
+    path.push("com.wokyis.dashboard");
+    path.push("themes");
+    if let Err(e) = fs::create_dir_all(&path) {
+        log::error!("[themes] Failed to create themes dir: {}", e);
+    } else {
+        log::info!("[themes] Themes dir: {:?}", path);
+    }
+    path
+}
+
+#[tauri::command]
+fn get_themes_dir() -> Result<String, String> {
+    let path = themes_dir_path();
+    path.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Invalid themes directory path".to_string())
+}
+
+#[tauri::command]
+fn open_themes_dir() -> Result<(), String> {
+    let path = themes_dir_path();
+    std::process::Command::new("open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| format!("Failed to open themes directory: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn save_theme_file(name: String, data: Vec<u8>) -> Result<(), String> {
+    let dir = themes_dir_path();
+    let file_name = format!("{}.zip", name);
+    let mut path = dir;
+    path.push(&file_name);
+    log::info!("[themes] Saving theme file: {:?} ({} bytes)", path, data.len());
+    fs::write(&path, data).map_err(|e| format!("Failed to write theme file: {}", e))?;
+    log::info!("[themes] Saved theme: {}", name);
+    Ok(())
+}
+
+#[tauri::command]
+fn list_theme_files() -> Result<Vec<String>, String> {
+    let dir = themes_dir_path();
+    log::info!("[themes] Listing themes in: {:?}", dir);
+    let mut files = Vec::new();
+    match fs::read_dir(&dir) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("zip") {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        files.push(stem.to_string());
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("[themes] Failed to read themes directory: {}", e);
+            return Err(format!("Failed to read themes directory: {}", e));
+        }
+    }
+    log::info!("[themes] Found {} theme files", files.len());
+    files.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    Ok(files)
+}
+
+#[tauri::command]
+fn read_theme_file(name: String) -> Result<Vec<u8>, String> {
+    let dir = themes_dir_path();
+    let file_name = format!("{}.zip", name);
+    let mut path = dir;
+    path.push(&file_name);
+    fs::read(&path).map_err(|e| format!("Failed to read theme file: {}", e))
+}
+
+#[tauri::command]
+fn delete_theme_file(name: String) -> Result<(), String> {
+    let dir = themes_dir_path();
+    let file_name = format!("{}.zip", name);
+    let mut path = dir;
+    path.push(&file_name);
+    fs::remove_file(&path).map_err(|e| format!("Failed to delete theme file: {}", e))?;
+    Ok(())
+}
+
+/* ============================================================
    FILE-BASED STORAGE (replaces tauri-plugin-store)
    ============================================================ */
 
@@ -314,6 +405,12 @@ pub fn run() {
             app_data_get,
             app_data_delete,
             app_data_migrate,
+            get_themes_dir,
+            open_themes_dir,
+            save_theme_file,
+            list_theme_files,
+            read_theme_file,
+            delete_theme_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

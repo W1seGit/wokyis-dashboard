@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+// import { open } from '@tauri-apps/plugin-shell';
 import JSZip from 'jszip';
 import { storeSet, storeGet, storeDelete, migrateFromLocalStorage } from './store';
 import './App.css';
@@ -28,7 +29,7 @@ interface WidgetStyle {
   customCss?: string;
 }
 
-interface Theme {
+interface ThemeColors {
   bgDeep: string; bgPrimary: string; bgSecondary: string;
   textPrimary: string; textSecondary: string; textDim: string;
   accent: string; accentHover: string;
@@ -43,14 +44,14 @@ interface Visibility {
   clock: boolean; date: boolean; nowPlaying: boolean; timer: boolean;
 }
 
-interface Preset {
+interface SavedTheme {
   id: string; name: string;
   backgroundType: 'youtube' | 'image';
   youtubeUrl: string; youtubeEndTime: number | null; imageUrl: string;
   use24Hour: boolean; useFahrenheit: boolean;
   autoHideEnabled: boolean; autoHideDelay: number;
   lat: number | null; lon: number | null; city: string;
-  theme: Theme;
+  theme: ThemeColors;
   positions: Record<string, Pos>;
   visibility: Visibility;
 }
@@ -59,7 +60,7 @@ interface Preset {
    DEFAULTS
    ============================================================ */
 
-const DEFAULT_THEME: Theme = {
+const DEFAULT_THEME: ThemeColors = {
   bgDeep: '#020617', bgPrimary: '#0F172A', bgSecondary: '#1E293B',
   textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textDim: '#64748B',
   accent: '#22C55E', accentHover: '#16A34A',
@@ -84,20 +85,79 @@ const DEFAULT_VISIBILITY: Visibility = {
   clock: true, date: true, nowPlaying: true, timer: true,
 };
 
-const PRESETS_KEY = 'wokyis_presets';
-const ACTIVE_PRESET_KEY = 'wokyis_active_preset';
+const ACTIVE_THEME_KEY = 'wokyis_active_theme';
 
-async function loadPresets(): Promise<Preset[]> {
-  try {
-    const val = await storeGet<Preset[] | string>(PRESETS_KEY);
-    if (!val) return [];
-    if (typeof val === 'string') return JSON.parse(val);
-    return Array.isArray(val) ? val : [];
-  } catch { return []; }
+/* ============================================================
+   DEFAULT THEMES
+   ============================================================ */
+
+function makeDefaultTheme(
+  name: string,
+  colors: Partial<ThemeColors>,
+  extra?: Partial<SavedTheme>
+): SavedTheme {
+  return {
+    id: genId(),
+    name,
+    backgroundType: 'youtube',
+    youtubeUrl: '',
+    youtubeEndTime: null,
+    imageUrl: '',
+    use24Hour: true,
+    useFahrenheit: false,
+    autoHideEnabled: false,
+    autoHideDelay: 5,
+    lat: null,
+    lon: null,
+    city: '',
+    theme: { ...DEFAULT_THEME, ...colors, widgetStyles: colors.widgetStyles || {}, customCss: colors.customCss || '' },
+    positions: { ...DEFAULT_POSITIONS },
+    visibility: { ...DEFAULT_VISIBILITY },
+    ...extra,
+  };
 }
-async function savePresets(p: Preset[]) { await storeSet(PRESETS_KEY, p); }
-async function loadActivePreset(): Promise<string | null> { return await storeGet<string>(ACTIVE_PRESET_KEY); }
-async function saveActivePreset(id: string | null) { if (id) await storeSet(ACTIVE_PRESET_KEY, id); else await storeDelete(ACTIVE_PRESET_KEY); }
+
+const BUILT_IN_THEMES: SavedTheme[] = [
+  makeDefaultTheme('Midnight', {
+    bgDeep: '#020617', bgPrimary: '#0F172A', bgSecondary: '#1E293B',
+    textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textDim: '#64748B',
+    accent: '#22C55E', accentHover: '#16A34A',
+    glassBg: 'rgba(15, 23, 42, 0.45)', glassBorder: 'rgba(255, 255, 255, 0.08)',
+  }),
+  makeDefaultTheme('Ocean', {
+    bgDeep: '#001219', bgPrimary: '#023047', bgSecondary: '#0a4d68',
+    textPrimary: '#e0f7fa', textSecondary: '#90e0ef', textDim: '#48cae4',
+    accent: '#00b4d8', accentHover: '#0096c7',
+    glassBg: 'rgba(2, 48, 71, 0.5)', glassBorder: 'rgba(144, 224, 239, 0.1)',
+  }),
+  makeDefaultTheme('Forest', {
+    bgDeep: '#081c15', bgPrimary: '#1b4332', bgSecondary: '#2d6a4f',
+    textPrimary: '#d8f3dc', textSecondary: '#b7e4c7', textDim: '#74c69d',
+    accent: '#52b788', accentHover: '#40916c',
+    glassBg: 'rgba(27, 67, 50, 0.5)', glassBorder: 'rgba(183, 228, 199, 0.1)',
+  }),
+  makeDefaultTheme('Sunset', {
+    bgDeep: '#1a0f1a', bgPrimary: '#2d1b2e', bgSecondary: '#4a2040',
+    textPrimary: '#ffe4e1', textSecondary: '#ffb7b2', textDim: '#ff9aa2',
+    accent: '#ff6b6b', accentHover: '#ee5253',
+    glassBg: 'rgba(45, 27, 46, 0.5)', glassBorder: 'rgba(255, 183, 178, 0.12)',
+  }),
+  makeDefaultTheme('Minimal', {
+    bgDeep: '#000000', bgPrimary: '#111111', bgSecondary: '#222222',
+    textPrimary: '#ffffff', textSecondary: '#aaaaaa', textDim: '#666666',
+    accent: '#ffffff', accentHover: '#dddddd',
+    glassBg: 'rgba(17, 17, 17, 0.6)', glassBorder: 'rgba(255, 255, 255, 0.1)',
+    panelBlur: 16,
+  }),
+  makeDefaultTheme('Cyber', {
+    bgDeep: '#0d0221', bgPrimary: '#1a0b2e', bgSecondary: '#2d1b4e',
+    textPrimary: '#f0e6ff', textSecondary: '#c77dff', textDim: '#9d4edd',
+    accent: '#ff00ff', accentHover: '#e0aaff',
+    glassBg: 'rgba(26, 11, 46, 0.5)', glassBorder: 'rgba(199, 125, 255, 0.15)',
+    customCss: '[data-widget="clock"] { text-shadow: 0 0 20px rgba(255,0,255,0.3); }',
+  }),
+];
+
 function genId() { return Math.random().toString(36).slice(2, 10); }
 function hexToRgba(hex: string, a: number): string {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -123,15 +183,14 @@ const IconLock       = () => <Ico d="M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2
 const IconMusic      = () => <Ico d="M9 18V5l12-2v13" />;
 const IconCalendar   = () => <Ico d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />;
 const IconTrash      = () => <Ico d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />;
-const IconDownload   = () => <Ico d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />;
 const IconUpload     = () => <Ico d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />;
 const IconPlus       = () => <Ico d="M12 5v14M5 12h14" />;
 const IconSearch     = () => <Ico d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" />;
 const IconGeneral    = () => <Ico d="M12 20h9M12 20V4m0 0H3m9 0v16" />;
 const IconBg         = () => <Ico d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />;
 const IconWeatherIco = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />;
-const IconPresets    = () => <Ico d="M19 11H5m14 0a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m14 0V9a2 2 0 0 0-2-2M5 11V9a2 2 0 0 1 2-2m0 0V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M7 7h10" />;
 const IconPalette    = () => <Ico d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />;
+const IconThemes     = () => <Ico d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />;
 const IconLayout     = () => <Ico d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />;
 const IconMove       = () => <Ico d="M5 9l4-4 4 4M9 5v14" />;
 const IconEye        = () => <Ico d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />;
@@ -150,6 +209,71 @@ const IconSnow       = () => <Ico d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 
 const IconStorm      = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9M13 11l-4 6h6l-4 6" />;
 const IconImage      = () => <Ico d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14l4-4 5 5 6-6 3 3z" />;
 const IconYoutube    = () => <Ico d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.94 2C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />;
+const IconFolder     = () => <Ico d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />;
+
+
+/* ============================================================
+   THEME FILE HELPERS
+   ============================================================ */
+
+async function saveThemeToFile(theme: SavedTheme): Promise<void> {
+  const zip = new JSZip();
+  zip.file('theme.json', JSON.stringify(theme.theme, null, 2));
+  zip.file('settings.json', JSON.stringify({
+    backgroundType: theme.backgroundType, youtubeUrl: theme.youtubeUrl, youtubeEndTime: theme.youtubeEndTime, imageUrl: theme.imageUrl,
+    use24Hour: theme.use24Hour, useFahrenheit: theme.useFahrenheit, autoHideEnabled: theme.autoHideEnabled, autoHideDelay: theme.autoHideDelay,
+    lat: theme.lat, lon: theme.lon, city: theme.city, positions: theme.positions, visibility: theme.visibility,
+  }, null, 2));
+  zip.file('custom.css', theme.theme.customCss || '/* Add your custom CSS here */\n');
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const arrayBuffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  await invoke('save_theme_file', { name: theme.name.replace(/[^a-zA-Z0-9\\-_ ]/g, '').trim() || 'Untitled', data: Array.from(bytes) });
+}
+
+async function loadThemesFromFiles(): Promise<SavedTheme[]> {
+  const files: string[] = await invoke('list_theme_files');
+  const themes: SavedTheme[] = [];
+  for (const name of files) {
+    try {
+      const bytes: number[] = await invoke('read_theme_file', { name });
+      const buffer = new Uint8Array(bytes);
+      const zip = await JSZip.loadAsync(buffer);
+      const themeJson = await zip.file('theme.json')?.async('string');
+      const settingsJson = await zip.file('settings.json')?.async('string');
+      const customCss = await zip.file('custom.css')?.async('string');
+      if (!themeJson) continue;
+      const themeColors = JSON.parse(themeJson) as ThemeColors;
+      const settings = settingsJson ? JSON.parse(settingsJson) : {};
+      themes.push({
+        id: genId(), name,
+        backgroundType: settings.backgroundType || 'youtube',
+        youtubeUrl: settings.youtubeUrl || '',
+        youtubeEndTime: settings.youtubeEndTime ?? null,
+        imageUrl: settings.imageUrl || '',
+        use24Hour: settings.use24Hour ?? true,
+        useFahrenheit: settings.useFahrenheit ?? false,
+        autoHideEnabled: settings.autoHideEnabled ?? false,
+        autoHideDelay: settings.autoHideDelay ?? 5,
+        lat: settings.lat ?? null,
+        lon: settings.lon ?? null,
+        city: settings.city || '',
+        theme: { ...DEFAULT_THEME, ...themeColors, widgetStyles: themeColors.widgetStyles || {}, customCss: customCss ?? themeColors.customCss ?? '' },
+        positions: settings.positions || { ...DEFAULT_POSITIONS },
+        visibility: settings.visibility || { ...DEFAULT_VISIBILITY },
+      });
+    } catch { /* ignore broken files */ }
+  }
+  return themes;
+}
+
+async function deleteThemeFile(name: string): Promise<void> {
+  await invoke('delete_theme_file', { name });
+}
+
+async function openThemesFolder(): Promise<void> {
+  await invoke('open_themes_dir');
+}
 
 /* ============================================================
    APP
@@ -160,14 +284,14 @@ function App() {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
 
-  /* --- presets --- */
-  const [presets, setPresets] = useState<Preset[]>([]);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [newPresetName, setNewPresetName] = useState('');
-  const [showNewPresetInput, setShowNewPresetInput] = useState(false);
-  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
-  const [editPresetJson, setEditPresetJson] = useState('');
-  const [renamingPresetId, setRenamingPresetId] = useState<string | null>(null);
+  /* --- themes --- */
+  const [themes, setThemes] = useState<SavedTheme[]>([]);
+  const [activeThemeId, setActiveThemeId] = useState<string | null>(null);
+  const [newThemeName, setNewThemeName] = useState('');
+  const [showNewThemeInput, setShowNewThemeInput] = useState(false);
+  const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
+  const [editThemeJson, setEditThemeJson] = useState('');
+  const [renamingThemeId, setRenamingThemeId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   /* --- background --- */
@@ -219,11 +343,11 @@ function App() {
 
   /* --- settings --- */
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'background' | 'weather' | 'presets' | 'theme' | 'layout'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'background' | 'weather' | 'themes' | 'theme' | 'layout'>('general');
   const [settingsSearch, setSettingsSearch] = useState('');
 
   /* --- theme --- */
-  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+  const [theme, setTheme] = useState<ThemeColors>(DEFAULT_THEME);
 
   /* --- widget settings popover --- */
   const [activeWidgetSettings, setActiveWidgetSettings] = useState<string | null>(null);
@@ -265,7 +389,7 @@ function App() {
       const tt = await storeGet<number>('timerTotal');
       if (ts !== null) setTimerSeconds(ts);
       if (tt !== null) setTimerTotal(tt);
-      const thm = await storeGet<Theme>('theme');
+      const thm = await storeGet<ThemeColors>('theme');
       if (thm) {
         // Migrate old themes without new fields
         setTheme({
@@ -275,10 +399,71 @@ function App() {
           customCss: thm.customCss || '',
         });
       }
-      const pr = await loadPresets();
-      setPresets(pr);
-      const ap = await loadActivePreset();
-      setActivePresetId(ap);
+      // Load themes from files + add built-ins if none exist yet
+      let fileThemes: SavedTheme[] = [];
+      try {
+        fileThemes = await loadThemesFromFiles();
+        console.log('[themes] Loaded', fileThemes.length, 'themes from files');
+      } catch (err) {
+        console.error('[themes] Failed to load themes from files:', err);
+      }
+      const storedActive = await storeGet<string>(ACTIVE_THEME_KEY);
+
+      // Migrate old presets if any exist
+      try {
+        const oldPresets = await storeGet<any[]>('wokyis_presets');
+        if (oldPresets && Array.isArray(oldPresets) && oldPresets.length > 0 && fileThemes.length === 0) {
+          console.log('[themes] Migrating', oldPresets.length, 'old presets');
+          for (const old of oldPresets) {
+            const migrated: SavedTheme = {
+              id: old.id || genId(),
+              name: old.name || 'Migrated',
+              backgroundType: old.backgroundType || 'youtube',
+              youtubeUrl: old.youtubeUrl || '',
+              youtubeEndTime: old.youtubeEndTime ?? null,
+              imageUrl: old.imageUrl || '',
+              use24Hour: old.use24Hour ?? true,
+              useFahrenheit: old.useFahrenheit ?? false,
+              autoHideEnabled: old.autoHideEnabled ?? false,
+              autoHideDelay: old.autoHideDelay ?? 5,
+              lat: old.lat ?? null,
+              lon: old.lon ?? null,
+              city: old.city || '',
+              theme: { ...DEFAULT_THEME, ...(old.theme || {}) },
+              positions: old.positions || { ...DEFAULT_POSITIONS },
+              visibility: old.visibility || { ...DEFAULT_VISIBILITY },
+            };
+            await saveThemeToFile(migrated);
+          }
+          fileThemes = await loadThemesFromFiles();
+          await storeDelete('wokyis_presets');
+          await storeDelete('wokyis_active_preset');
+        }
+      } catch (err) {
+        console.error('[themes] Migration failed:', err);
+      }
+
+      if (fileThemes.length === 0) {
+        console.log('[themes] No themes found, seeding built-in themes');
+        for (const t of BUILT_IN_THEMES) {
+          try {
+            await saveThemeToFile(t);
+          } catch (err) {
+            console.error('[themes] Failed to save built-in theme', t.name, err);
+          }
+        }
+        try {
+          fileThemes = await loadThemesFromFiles();
+        } catch (err) {
+          console.error('[themes] Failed to reload themes after seeding:', err);
+        }
+      }
+
+      setThemes(fileThemes);
+      if (storedActive) {
+        const found = fileThemes.find((t) => t.id === storedActive);
+        if (found) setActiveThemeId(storedActive);
+      }
     };
     init();
   }, []);
@@ -574,9 +759,9 @@ function App() {
   const resetLayout = async () => { setPositions(DEFAULT_POSITIONS); await storeSet('positions', DEFAULT_POSITIONS); };
 
   /* ==========================================================
-     PRESETS
+     THEMES
      ========================================================== */
-  const buildCurrentPreset = (name: string): Preset => ({
+  const buildCurrentTheme = (name: string): SavedTheme => ({
     id: genId(), name,
     backgroundType, youtubeUrl, youtubeEndTime, imageUrl,
     use24Hour, useFahrenheit, autoHideEnabled, autoHideDelay,
@@ -584,168 +769,94 @@ function App() {
     theme, positions, visibility,
   });
 
-  const applyPreset = async (preset: Preset) => {
-    setBackgroundType(preset.backgroundType); setYoutubeUrl(preset.youtubeUrl); setYoutubeEndTime(preset.youtubeEndTime); setImageUrl(preset.imageUrl);
-    setUse24Hour(preset.use24Hour); setUseFahrenheit(preset.useFahrenheit);
-    setAutoHideEnabled(preset.autoHideEnabled); setAutoHideDelay(preset.autoHideDelay);
-    setLat(preset.lat); setLon(preset.lon); setLocationCity(preset.city);
-    setTheme(preset.theme); setPositions(preset.positions); setVisibility(preset.visibility);
-    setActivePresetId(preset.id); await saveActivePreset(preset.id);
-    await storeSet('backgroundType', preset.backgroundType); await storeSet('youtubeUrl', preset.youtubeUrl);
-    await storeSet('youtubeEndTime', preset.youtubeEndTime ?? null); await storeSet('imageUrl', preset.imageUrl);
-    await storeSet('use24Hour', preset.use24Hour); await storeSet('useFahrenheit', preset.useFahrenheit);
-    await storeSet('autoHideEnabled', preset.autoHideEnabled); await storeSet('autoHideDelay', preset.autoHideDelay);
-    if (preset.lat !== null) await storeSet('lat', preset.lat); if (preset.lon !== null) await storeSet('lon', preset.lon);
-    await storeSet('locationCity', preset.city); await storeSet('theme', preset.theme);
-    await storeSet('positions', preset.positions); await storeSet('visibility', preset.visibility);
+  const applyTheme = async (t: SavedTheme) => {
+    setBackgroundType(t.backgroundType); setYoutubeUrl(t.youtubeUrl); setYoutubeEndTime(t.youtubeEndTime); setImageUrl(t.imageUrl);
+    setUse24Hour(t.use24Hour); setUseFahrenheit(t.useFahrenheit);
+    setAutoHideEnabled(t.autoHideEnabled); setAutoHideDelay(t.autoHideDelay);
+    setLat(t.lat); setLon(t.lon); setLocationCity(t.city);
+    setTheme(t.theme); setPositions(t.positions); setVisibility(t.visibility);
+    setActiveThemeId(t.id); await storeSet(ACTIVE_THEME_KEY, t.id);
+    await storeSet('backgroundType', t.backgroundType); await storeSet('youtubeUrl', t.youtubeUrl);
+    await storeSet('youtubeEndTime', t.youtubeEndTime ?? null); await storeSet('imageUrl', t.imageUrl);
+    await storeSet('use24Hour', t.use24Hour); await storeSet('useFahrenheit', t.useFahrenheit);
+    await storeSet('autoHideEnabled', t.autoHideEnabled); await storeSet('autoHideDelay', t.autoHideDelay);
+    if (t.lat !== null) await storeSet('lat', t.lat); if (t.lon !== null) await storeSet('lon', t.lon);
+    await storeSet('locationCity', t.city); await storeSet('theme', t.theme);
+    await storeSet('positions', t.positions); await storeSet('visibility', t.visibility);
   };
 
-  const updateActivePreset = async () => {
-    if (!activePresetId) return;
-    const idx = presets.findIndex((p) => p.id === activePresetId);
+  const updateActiveTheme = async () => {
+    if (!activeThemeId) return;
+    const idx = themes.findIndex((t) => t.id === activeThemeId);
     if (idx === -1) return;
-    const updated = { ...presets[idx], backgroundType, youtubeUrl, youtubeEndTime, imageUrl, use24Hour, useFahrenheit, autoHideEnabled, autoHideDelay, lat, lon, city: locationCity, theme, positions, visibility };
-    const next = [...presets]; next[idx] = updated;
-    setPresets(next); await savePresets(next);
+    const updated = buildCurrentTheme(themes[idx].name);
+    updated.id = activeThemeId;
+    const next = [...themes]; next[idx] = updated;
+    setThemes(next);
+    await saveThemeToFile(updated);
   };
 
-  const confirmSavePreset = async () => {
-    const name = newPresetName.trim();
+  const confirmSaveTheme = async () => {
+    const name = newThemeName.trim();
     if (!name) return;
-    const preset = buildCurrentPreset(name);
-    const next = [...presets, preset];
-    setPresets(next); await savePresets(next);
-    setActivePresetId(preset.id); await saveActivePreset(preset.id);
-    setNewPresetName(''); setShowNewPresetInput(false);
+    const t = buildCurrentTheme(name);
+    const next = [...themes, t];
+    setThemes(next);
+    await saveThemeToFile(t);
+    setActiveThemeId(t.id); await storeSet(ACTIVE_THEME_KEY, t.id);
+    setNewThemeName(''); setShowNewThemeInput(false);
   };
 
-  const deletePreset = async (id: string, e: React.MouseEvent) => {
+  const deleteTheme = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const next = presets.filter((p) => p.id !== id);
-    setPresets(next); await savePresets(next);
-    if (activePresetId === id) { setActivePresetId(null); await saveActivePreset(null); }
+    const t = themes.find((th) => th.id === id);
+    if (t) await deleteThemeFile(t.name);
+    const next = themes.filter((th) => th.id !== id);
+    setThemes(next);
+    if (activeThemeId === id) { setActiveThemeId(null); await storeDelete(ACTIVE_THEME_KEY); }
   };
 
-  const startRename = (p: Preset, e: React.MouseEvent) => {
+  const startRename = (t: SavedTheme, e: React.MouseEvent) => {
     e.stopPropagation();
-    setRenamingPresetId(p.id);
-    setRenameValue(p.name);
+    setRenamingThemeId(t.id);
+    setRenameValue(t.name);
   };
 
   const confirmRename = async () => {
-    if (!renamingPresetId || !renameValue.trim()) { setRenamingPresetId(null); return; }
-    const next = presets.map((p) => p.id === renamingPresetId ? { ...p, name: renameValue.trim() } : p);
-    setPresets(next); await savePresets(next);
-    setRenamingPresetId(null);
+    if (!renamingThemeId || !renameValue.trim()) { setRenamingThemeId(null); return; }
+    const old = themes.find((t) => t.id === renamingThemeId);
+    if (old) await deleteThemeFile(old.name);
+    const next = themes.map((t) => t.id === renamingThemeId ? { ...t, name: renameValue.trim() } : t);
+    const updated = next.find((t) => t.id === renamingThemeId);
+    if (updated) await saveThemeToFile(updated);
+    setThemes(next);
+    setRenamingThemeId(null);
   };
 
-  const startEditJson = (p: Preset, e: React.MouseEvent) => {
+  const startEditJson = (t: SavedTheme, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditingPresetId(p.id);
-    setEditPresetJson(JSON.stringify(p, null, 2));
+    setEditingThemeId(t.id);
+    setEditThemeJson(JSON.stringify(t, null, 2));
   };
 
   const confirmEditJson = async () => {
-    if (!editingPresetId) return;
+    if (!editingThemeId) return;
     try {
-      const parsed = JSON.parse(editPresetJson) as Preset;
-      parsed.id = editingPresetId; // preserve ID
-      const next = presets.map((p) => p.id === editingPresetId ? parsed : p);
-      setPresets(next); await savePresets(next);
-      if (activePresetId === editingPresetId) await applyPreset(parsed);
-      setEditingPresetId(null);
+      const parsed = JSON.parse(editThemeJson) as SavedTheme;
+      parsed.id = editingThemeId; // preserve ID
+      const old = themes.find((t) => t.id === editingThemeId);
+      if (old && old.name !== parsed.name) await deleteThemeFile(old.name);
+      const next = themes.map((t) => t.id === editingThemeId ? parsed : t);
+      setThemes(next);
+      await saveThemeToFile(parsed);
+      if (activeThemeId === editingThemeId) await applyTheme(parsed);
+      setEditingThemeId(null);
     } catch { alert('Invalid JSON'); }
   };
 
-  const exportPresets = () => {
-    const blob = new Blob([JSON.stringify(presets, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'wokyis-presets.json'; a.click(); URL.revokeObjectURL(url);
-  };
 
-  const importPresets = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const imported = JSON.parse(reader.result as string) as Preset[];
-        if (!Array.isArray(imported)) throw new Error('Invalid');
-        const next = [...presets, ...imported.map((p) => ({ ...p, id: genId() }))];
-        setPresets(next); await savePresets(next);
-      } catch { alert('Invalid preset file'); }
-    };
-    reader.readAsText(file);
-  };
 
-  /* ==========================================================
-     ZIP THEME EXPORT / IMPORT
-     ========================================================== */
-  const exportThemeZip = async () => {
-    const zip = new JSZip();
-    const themeJson = JSON.stringify(theme, null, 2);
-    zip.file('theme.json', themeJson);
-    zip.file('custom.css', theme.customCss || '/* Add your custom CSS here */\n');
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'wokyis-theme.zip';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
-  const importThemeZip = async (file: File) => {
-    try {
-      const zip = await JSZip.loadAsync(file);
-      const themeJson = await zip.file('theme.json')?.async('string');
-      const customCss = await zip.file('custom.css')?.async('string');
-      if (!themeJson) { alert('theme.json not found in zip'); return; }
-      const parsed = JSON.parse(themeJson) as Theme;
-      const merged: Theme = {
-        ...DEFAULT_THEME,
-        ...parsed,
-        widgetStyles: parsed.widgetStyles || {},
-        customCss: customCss ?? parsed.customCss ?? '',
-      };
-      setTheme(merged);
-      await storeSet('theme', merged);
-    } catch { alert('Invalid theme zip file'); }
-  };
-
-  const exportPresetZip = async (preset: Preset) => {
-    const zip = new JSZip();
-    zip.file('preset.json', JSON.stringify(preset, null, 2));
-    zip.file('theme.json', JSON.stringify(preset.theme, null, 2));
-    zip.file('custom.css', preset.theme.customCss || '/* Add your custom CSS here */\n');
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `wokyis-preset-${preset.name.replace(/\s+/g, '-').toLowerCase()}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importPresetZip = async (file: File) => {
-    try {
-      const zip = await JSZip.loadAsync(file);
-      const presetJson = await zip.file('preset.json')?.async('string');
-      const themeJson = await zip.file('theme.json')?.async('string');
-      const customCss = await zip.file('custom.css')?.async('string');
-      if (!presetJson) { alert('preset.json not found in zip'); return; }
-      const parsed = JSON.parse(presetJson) as Preset;
-      parsed.id = genId();
-      if (themeJson) {
-        const thm = JSON.parse(themeJson) as Theme;
-        parsed.theme = { ...DEFAULT_THEME, ...thm, widgetStyles: thm.widgetStyles || {}, customCss: customCss ?? thm.customCss ?? '' };
-      } else if (customCss) {
-        parsed.theme = { ...DEFAULT_THEME, ...(parsed.theme || {}), customCss };
-      } else {
-        parsed.theme = { ...DEFAULT_THEME, ...(parsed.theme || {}) };
-      }
-      const next = [...presets, parsed];
-      setPresets(next); await savePresets(next);
-    } catch { alert('Invalid preset zip file'); }
-  };
 
   /* ==========================================================
      SAVE SETTINGS
@@ -799,12 +910,12 @@ function App() {
   /* ==========================================================
      SETTINGS TABS
      ========================================================== */
-  const tabs: { id: 'general' | 'background' | 'weather' | 'presets' | 'theme' | 'layout'; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: 'general' | 'background' | 'weather' | 'themes' | 'theme' | 'layout'; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <IconGeneral /> },
     { id: 'background', label: 'Background', icon: <IconBg /> },
     { id: 'weather', label: 'Weather', icon: <IconWeatherIco /> },
     { id: 'layout', label: 'Layout', icon: <IconLayout /> },
-    { id: 'presets', label: 'Presets', icon: <IconPresets /> },
+    { id: 'themes', label: 'Themes', icon: <IconThemes /> },
     { id: 'theme', label: 'Theme', icon: <IconPalette /> },
   ];
   const visibleTabs = settingsSearch ? tabs.filter((t) => t.label.toLowerCase().includes(settingsSearch.toLowerCase())) : tabs;
@@ -1215,47 +1326,46 @@ function App() {
                 </div>
               )}
 
-              {/* PRESETS */}
-              {settingsTab === 'presets' && (
+              {/* THEMES */}
+              {settingsTab === 'themes' && (
                 <div className="settings-section">
-                  <h3>Presets</h3>
-                  {activePresetId && (
+                  <h3>Themes</h3>
+                  {activeThemeId && (
                     <div className="settings-field">
-                      <label>Active Preset</label>
+                      <label>Active Theme</label>
                       <div className="active-preset-bar">
-                        <span className="active-preset-name">{presets.find((p) => p.id === activePresetId)?.name || 'None'}</span>
-                        <button className="btn-primary small" onClick={updateActivePreset}><IconCheck /> Save to Preset</button>
+                        <span className="active-preset-name">{themes.find((t) => t.id === activeThemeId)?.name || 'None'}</span>
+                        <button className="btn-primary small" onClick={updateActiveTheme}><IconCheck /> Save to Theme</button>
                       </div>
-                      <p className="hint">Click "Save to Preset" to overwrite the active preset with current settings.</p>
+                      <p className="hint">Click "Save to Theme" to overwrite the active theme with current settings.</p>
                     </div>
                   )}
                   <div className="settings-field">
-                    <label>Saved Presets</label>
+                    <label>Saved Themes</label>
                     <div className="preset-list">
-                      {presets.map((p) => (
-                        <div key={p.id} className={`preset-card ${activePresetId === p.id ? 'active' : ''}`}>
-                          {renamingPresetId === p.id ? (
+                      {themes.map((t) => (
+                        <div key={t.id} className={`preset-card ${activeThemeId === t.id ? 'active' : ''}`}>
+                          {renamingThemeId === t.id ? (
                             <div className="preset-rename-row">
                               <input type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmRename()} autoFocus />
                               <button className="btn-primary small" onClick={confirmRename}><IconCheck /></button>
-                              <button className="btn-secondary small" onClick={() => setRenamingPresetId(null)}><IconX /></button>
+                              <button className="btn-secondary small" onClick={() => setRenamingThemeId(null)}><IconX /></button>
                             </div>
-                          ) : editingPresetId === p.id ? (
+                          ) : editingThemeId === t.id ? (
                             <div className="preset-edit-json">
-                              <textarea value={editPresetJson} onChange={(e) => setEditPresetJson(e.target.value)} rows={6} />
+                              <textarea value={editThemeJson} onChange={(e) => setEditThemeJson(e.target.value)} rows={6} />
                               <div className="preset-actions">
                                 <button className="btn-primary small" onClick={confirmEditJson}><IconCheck /> Save JSON</button>
-                                <button className="btn-secondary small" onClick={() => setEditingPresetId(null)}><IconX /> Cancel</button>
+                                <button className="btn-secondary small" onClick={() => setEditingThemeId(null)}><IconX /> Cancel</button>
                               </div>
                             </div>
                           ) : (
                             <>
-                              <button className="preset-card-name" onClick={() => applyPreset(p)}>{p.name}</button>
+                              <button className="preset-card-name" onClick={() => applyTheme(t)}>{t.name}</button>
                               <div className="preset-card-actions">
-                                <button className="preset-card-btn" onClick={(e) => { e.stopPropagation(); exportPresetZip(p); }} title="Export Zip"><IconDownload /></button>
-                                <button className="preset-card-btn" onClick={(e) => startRename(p, e)} title="Rename"><IconPencil /></button>
-                                <button className="preset-card-btn" onClick={(e) => startEditJson(p, e)} title="Edit JSON"><IconSettings /></button>
-                                <button className="preset-card-btn delete" onClick={(e) => deletePreset(p.id, e)} title="Delete"><IconTrash /></button>
+                                <button className="preset-card-btn" onClick={(e) => startRename(t, e)} title="Rename"><IconPencil /></button>
+                                <button className="preset-card-btn" onClick={(e) => startEditJson(t, e)} title="Edit JSON"><IconSettings /></button>
+                                <button className="preset-card-btn delete" onClick={(e) => deleteTheme(t.id, e)} title="Delete"><IconTrash /></button>
                               </div>
                             </>
                           )}
@@ -1264,28 +1374,58 @@ function App() {
                     </div>
                   </div>
                   <div className="settings-field">
-                    <label>New Preset</label>
-                    {!showNewPresetInput ? (
-                      <button className="preset-chip add" onClick={() => setShowNewPresetInput(true)}><IconPlus /> Save Current as Preset</button>
+                    <label>New Theme</label>
+                    {!showNewThemeInput ? (
+                      <button className="preset-chip add" onClick={() => setShowNewThemeInput(true)}><IconPlus /> Save Current as Theme</button>
                     ) : (
                       <div className="new-preset-row">
-                        <input type="text" value={newPresetName} onChange={(e) => setNewPresetName(e.target.value)} placeholder="Preset name..." onKeyDown={(e) => e.key === 'Enter' && confirmSavePreset()} autoFocus />
-                        <button className="btn-primary small" onClick={confirmSavePreset}>Save</button>
-                        <button className="btn-secondary small" onClick={() => { setShowNewPresetInput(false); setNewPresetName(''); }}>Cancel</button>
+                        <input type="text" value={newThemeName} onChange={(e) => setNewThemeName(e.target.value)} placeholder="Theme name..." onKeyDown={(e) => e.key === 'Enter' && confirmSaveTheme()} autoFocus />
+                        <button className="btn-primary small" onClick={confirmSaveTheme}>Save</button>
+                        <button className="btn-secondary small" onClick={() => { setShowNewThemeInput(false); setNewThemeName(''); }}>Cancel</button>
                       </div>
                     )}
                   </div>
                   <div className="settings-field">
                     <label>Transfer</label>
                     <div className="preset-actions">
-                      <button className="icon-text-btn" onClick={exportPresets}><IconDownload /> Export JSON</button>
+                      <button className="icon-text-btn" onClick={openThemesFolder}><IconFolder /> Open Themes Folder</button>
                       <label className="icon-text-btn file-label">
-                        <IconUpload /> Import JSON
-                        <input type="file" accept=".json" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) importPresets(e.target.files[0]); }} />
-                      </label>
-                      <label className="icon-text-btn file-label">
-                        <IconUpload /> Import Zip
-                        <input type="file" accept=".zip" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) importPresetZip(e.target.files[0]); }} />
+                        <IconUpload /> Import Theme Zip
+                        <input type="file" accept=".zip" style={{ display: 'none' }} onChange={async (e) => {
+                          if (e.target.files?.[0]) {
+                            try {
+                              const file = e.target.files[0];
+                              const zip = await JSZip.loadAsync(file);
+                              const themeJson = await zip.file('theme.json')?.async('string');
+                              const settingsJson = await zip.file('settings.json')?.async('string');
+                              const customCss = await zip.file('custom.css')?.async('string');
+                              if (!themeJson) { alert('theme.json not found in zip'); return; }
+                              const themeColors = JSON.parse(themeJson) as ThemeColors;
+                              const settings = settingsJson ? JSON.parse(settingsJson) : {};
+                              const imported: SavedTheme = {
+                                id: genId(),
+                                name: file.name.replace(/\.zip$/i, '').replace(/[-_]/g, ' '),
+                                backgroundType: settings.backgroundType || 'youtube',
+                                youtubeUrl: settings.youtubeUrl || '',
+                                youtubeEndTime: settings.youtubeEndTime ?? null,
+                                imageUrl: settings.imageUrl || '',
+                                use24Hour: settings.use24Hour ?? true,
+                                useFahrenheit: settings.useFahrenheit ?? false,
+                                autoHideEnabled: settings.autoHideEnabled ?? false,
+                                autoHideDelay: settings.autoHideDelay ?? 5,
+                                lat: settings.lat ?? null,
+                                lon: settings.lon ?? null,
+                                city: settings.city || '',
+                                theme: { ...DEFAULT_THEME, ...themeColors, widgetStyles: themeColors.widgetStyles || {}, customCss: customCss ?? themeColors.customCss ?? '' },
+                                positions: settings.positions || { ...DEFAULT_POSITIONS },
+                                visibility: settings.visibility || { ...DEFAULT_VISIBILITY },
+                              };
+                              const next = [...themes, imported];
+                              setThemes(next);
+                              await saveThemeToFile(imported);
+                            } catch { alert('Invalid theme zip file'); }
+                          }
+                        }} />
                       </label>
                     </div>
                   </div>
@@ -1351,11 +1491,7 @@ function App() {
                   <div className="settings-field">
                     <label>Theme Transfer</label>
                     <div className="preset-actions">
-                      <button className="icon-text-btn" onClick={exportThemeZip}><IconDownload /> Export Theme Zip</button>
-                      <label className="icon-text-btn file-label">
-                        <IconUpload /> Import Theme Zip
-                        <input type="file" accept=".zip" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) importThemeZip(e.target.files[0]); }} />
-                      </label>
+                      <button className="icon-text-btn" onClick={openThemesFolder}><IconFolder /> Open Themes Folder</button>
                     </div>
                   </div>
                   <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset to default theme</button>
