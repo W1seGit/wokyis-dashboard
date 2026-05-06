@@ -997,7 +997,7 @@ function App() {
   /* ==========================================================
      RENDER WIDGET WRAPPER
      ========================================================== */
-  const Widget = ({ widgetKey, children, className = '' }: { widgetKey: string; children: React.ReactNode; className?: string }) => {
+  const renderWidget = (widgetKey: string, children: React.ReactNode, className = '') => {
     const pos = positions[widgetKey] || DEFAULT_POSITIONS[widgetKey];
     const vis = visibility[widgetKey as keyof Visibility];
     if (!vis) return null;
@@ -1007,6 +1007,7 @@ function App() {
 
     return (
       <div
+        key={widgetKey}
         data-widget={widgetKey}
         className={`widget-wrapper ${editLayoutMode ? 'edit-mode' : ''} ${uiHidden && widgetKey !== 'clock' && widgetKey !== 'date' && widgetKey !== 'weather' ? 'ui-hideable' : ''} ${className}`}
         style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...inline }}
@@ -1146,8 +1147,8 @@ function App() {
       {/* Main Content */}
       <div className="content" ref={contentRef}>
         {/* Weather */}
-        <Widget widgetKey="weather">
-          {weather && displayTemp ? (
+        {renderWidget("weather",
+          weather && displayTemp ? (
             <div className="glass-panel weather-widget">
               <div className="weather-main">
                 <span className="weather-icon"><WeatherIcon code={weather.code} /></span>
@@ -1174,21 +1175,21 @@ function App() {
                 <span className="dim-text">Loading weather...</span>
               )}
             </div>
-          )}
-        </Widget>
+          )
+        )}
 
         {/* Calendar */}
-        <Widget widgetKey="calendar">
-          {calendarEvent && !focusMode && (
+        {renderWidget("calendar",
+          calendarEvent && !focusMode && (
             <div className="glass-panel calendar-widget">
               <IconCalendar />
               <span className="calendar-text">{calendarEvent}</span>
             </div>
-          )}
-        </Widget>
+          )
+        )}
 
         {/* Settings Buttons */}
-        <Widget widgetKey="settingsButtons">
+        {renderWidget("settingsButtons",
           <div className="settings-buttons-row">
             <button className="glass-icon-btn" onClick={toggleFocusMode} title="Toggle Focus Mode (⌘F)">
               {focusMode ? <IconFocusOff /> : <IconFocus />}
@@ -1200,10 +1201,10 @@ function App() {
               <IconSettings />
             </button>
           </div>
-        </Widget>
+        )}
 
         {/* Clock */}
-        <Widget widgetKey="clock">
+        {renderWidget("clock",
           <div className="clock">
             <span className="clock-hours">{formattedTime.hours}</span>
             <span className="clock-sep">:</span>
@@ -1212,25 +1213,25 @@ function App() {
             <span className="clock-seconds">{formattedTime.seconds}</span>
             {!use24Hour && <span className="clock-ampm">{formattedTime.ampm}</span>}
           </div>
-        </Widget>
+        )}
 
         {/* Date */}
-        <Widget widgetKey="date">
+        {renderWidget("date",
           <div className="date-text">{formattedDate}</div>
-        </Widget>
+        )}
 
         {/* Now Playing */}
-        <Widget widgetKey="nowPlaying">
-          {nowPlaying && !focusMode && (
+        {renderWidget("nowPlaying",
+          nowPlaying && !focusMode && (
             <div className="glass-panel now-playing-widget">
               <IconMusic />
               <span className="np-text">{nowPlaying}</span>
             </div>
-          )}
-        </Widget>
+          )
+        )}
 
         {/* Timer */}
-        <Widget widgetKey="timer">
+        {renderWidget("timer",
           <div className="timer-wrapper">
             {showTimer && (
               <div className="glass-panel timer-widget">
@@ -1251,7 +1252,7 @@ function App() {
               <IconTimer />
             </button>
           </div>
-        </Widget>
+        )}
       </div>
 
       {/* Settings Modal with Sidebar */}
