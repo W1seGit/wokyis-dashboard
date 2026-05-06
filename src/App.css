@@ -330,6 +330,15 @@ html, body, #root {
   min-width: calc(var(--clock-size) * 1.05);
 }
 
+.clock-ampm {
+  font-size: calc(var(--clock-size) * 0.28);
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-left: 0.15em;
+  align-self: flex-end;
+  margin-bottom: calc(var(--clock-size) * 0.18);
+}
+
 .clock-sep {
   font-size: calc(var(--clock-size) * 0.72);
   font-weight: 300;
@@ -460,6 +469,24 @@ html, body, #root {
   border-color: var(--glass-border-hover);
 }
 
+/* ==================== AUTO-HIDE UI ==================== */
+
+.ui-hideable {
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ui-hidden .ui-hideable {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+/* Keep clock and date always visible */
+.ui-hidden .clock-area {
+  opacity: 1;
+  transform: none;
+}
+
 /* ==================== FOCUS MODE ==================== */
 
 .focus-mode .top-center,
@@ -555,6 +582,97 @@ html, body, #root {
 
 .coords-row input {
   flex: 1;
+}
+
+/* Toggle buttons */
+.toggle-row {
+  display: flex;
+  gap: 0;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  width: fit-content;
+}
+
+.toggle-btn {
+  padding: 10px 20px;
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Slider */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.slider-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.slider-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 32px;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--glass-border);
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .location-settings-row {

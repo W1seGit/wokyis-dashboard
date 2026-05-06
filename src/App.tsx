@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 
@@ -72,6 +72,16 @@ function App() {
   const [focusMode, setFocusMode] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
 
+  /* --- Clock format --- */
+  const [use24Hour, setUse24Hour] = useState(() => localStorage.getItem('use24Hour') !== 'false');
+
+  /* --- Auto-hide UI --- */
+  const [autoHideEnabled, setAutoHideEnabled] = useState(() => localStorage.getItem('autoHideEnabled') === 'true');
+  const [autoHideDelay, setAutoHideDelay] = useState(() => { const v = localStorage.getItem('autoHideDelay'); return v ? parseInt(v) : 5; });
+  const [uiHidden, setUiHidden] = useState(false);
+  const autoHideTimerRef = useRef<number | null>(null);
+
+  /* --- Timer --- */
   const [timerSeconds, setTimerSeconds] = useState(() => { const v = localStorage.getItem('timerMinutes'); return v ? parseInt(v) * 60 : 25 * 60; });
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerTotal, setTimerTotal] = useState(() => { const v = localStorage.getItem('timerMinutes'); return v ? parseInt(v) * 60 : 25 * 60; });
@@ -91,14 +101,47 @@ function App() {
   useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
 
   const formattedTime = useMemo(() => {
-    const h = time.getHours().toString().padStart(2, '0');
+    let h: number;
+    let ampm = '';
+    if (use24Hour) {
+      h = time.getHours();
+    } else {
+      h = time.getHours() % 12;
+      h = h === 0 ? 12 : h;
+      ampm = time.getHours() >= 12 ? ' PM' : ' AM';
+    }
     const m = time.getMinutes().toString().padStart(2, '0');
     const s = time.getSeconds().toString().padStart(2, '0');
-    return { hours: h, minutes: m, seconds: s };
-  }, [time]);
+    return { hours: h.toString().padStart(use24Hour ? 2 : 0, '0'), minutes: m, seconds: s, ampm };
+  }, [time, use24Hour]);
 
   const formattedDate = useMemo(() => time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), [time]);
 
+  /* --- Auto-hide logic --- */
+  const resetAutoHide = useCallback(() => {
+    setUiHidden(false);
+    if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+    if (autoHideEnabled && !showSettings) {
+      autoHideTimerRef.current = window.setTimeout(() => setUiHidden(true), autoHideDelay * 1000);
+    }
+  }, [autoHideEnabled, autoHideDelay, showSettings]);
+
+  useEffect(() => {
+    if (!autoHideEnabled || showSettings) {
+      setUiHidden(false);
+      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+      return;
+    }
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel'];
+    events.forEach(e => window.addEventListener(e, resetAutoHide));
+    resetAutoHide();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetAutoHide));
+      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+    };
+  }, [resetAutoHide, autoHideEnabled, showSettings]);
+
+  /* --- Now Playing --- */
   useEffect(() => {
     const fetchNowPlaying = async () => {
       try { const result: string = await invoke('get_now_playing'); setNowPlaying(result); } catch { setNowPlaying(''); }
@@ -108,6 +151,7 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
+  /* --- Calendar --- */
   useEffect(() => {
     const fetchCalendar = async () => {
       try { const result: string = await invoke('get_next_calendar_event'); setCalendarEvent(result); } catch { setCalendarEvent(''); }
@@ -117,6 +161,7 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
+  /* --- Location --- */
   const requestLocation = () => {
     setLocationRequested(true);
     setWeatherError('');
@@ -188,6 +233,7 @@ function App() {
     return () => clearInterval(id);
   }, [lat, lon]);
 
+  /* --- Timer logic --- */
   useEffect(() => {
     if (!timerRunning) { if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; } return; }
     endTimeRef.current = Date.now() + timerSeconds * 1000;
@@ -204,7 +250,13 @@ function App() {
   const setPreset = (mins: number) => { setTimerRunning(false); endTimeRef.current = null; setTimerSeconds(mins * 60); setTimerTotal(mins * 60); localStorage.setItem('timerMinutes', mins.toString()); };
   const formattedTimer = `${String(Math.floor(timerSeconds / 60)).padStart(2, '0')}:${String(timerSeconds % 60).padStart(2, '0')}`;
 
-  const saveYoutube = () => { localStorage.setItem('youtubeUrl', youtubeUrl); setShowSettings(false); };
+  const saveSettings = () => {
+    localStorage.setItem('youtubeUrl', youtubeUrl);
+    localStorage.setItem('use24Hour', use24Hour.toString());
+    localStorage.setItem('autoHideEnabled', autoHideEnabled.toString());
+    localStorage.setItem('autoHideDelay', autoHideDelay.toString());
+    setShowSettings(false);
+  };
 
   const openLocationSettings = async () => {
     try { await invoke('open_location_settings'); } catch {}
@@ -237,7 +289,7 @@ function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
+    <div className={`app ${focusMode ? 'focus-mode' : ''} ${uiHidden ? 'ui-hidden' : ''}`}>
       {videoId && (
         <div className="video-bg">
           <iframe
@@ -257,7 +309,7 @@ function App() {
         <div className="top-bar">
           <div className="top-left">
             {weather ? (
-              <div className="glass-panel weather-widget">
+              <div className="glass-panel weather-widget ui-hideable">
                 <div className="weather-main">
                   <span className="weather-icon"><WeatherIcon code={weather.code} /></span>
                   <span className="weather-temp">{weather.temp}°C</span>
@@ -271,7 +323,7 @@ function App() {
                 )}
               </div>
             ) : (
-              <div className="location-prompt">
+              <div className="location-prompt ui-hideable">
                 {weatherError === 'location_denied' ? (
                   <div className="location-denied-block">
                     <span className="location-error">Location access denied</span>
@@ -294,14 +346,14 @@ function App() {
 
           <div className="top-center">
             {calendarEvent && !focusMode && (
-              <div className="glass-panel calendar-widget">
+              <div className="glass-panel calendar-widget ui-hideable">
                 <IconCalendar />
                 <span className="calendar-text">{calendarEvent}</span>
               </div>
             )}
           </div>
 
-          <div className="top-right">
+          <div className="top-right ui-hideable">
             <button className="glass-icon-btn" onClick={toggleFocusMode} title="Toggle Focus Mode (⌘F)">
               {focusMode ? <IconFocusOff /> : <IconFocus />}
             </button>
@@ -319,6 +371,7 @@ function App() {
             <span className="clock-minutes">{formattedTime.minutes}</span>
             <span className="clock-sep">:</span>
             <span className="clock-seconds">{formattedTime.seconds}</span>
+            {!use24Hour && <span className="clock-ampm">{formattedTime.ampm}</span>}
           </div>
           <div className="date-text">{formattedDate}</div>
         </div>
@@ -327,14 +380,14 @@ function App() {
         <div className="bottom-bar">
           <div className="bottom-left">
             {nowPlaying && !focusMode && (
-              <div className="glass-panel now-playing-widget">
+              <div className="glass-panel now-playing-widget ui-hideable">
                 <IconMusic />
                 <span className="np-text">{nowPlaying}</span>
               </div>
             )}
           </div>
 
-          <div className="bottom-right">
+          <div className="bottom-right ui-hideable">
             {showTimer && (
               <div className="glass-panel timer-widget">
                 <div className="timer-presets">
@@ -372,6 +425,37 @@ function App() {
             </div>
 
             <div className="settings-field">
+              <label>Clock Format</label>
+              <div className="toggle-row">
+                <button className={`toggle-btn ${use24Hour ? 'active' : ''}`} onClick={() => setUse24Hour(true)}>24-Hour</button>
+                <button className={`toggle-btn ${!use24Hour ? 'active' : ''}`} onClick={() => setUse24Hour(false)}>12-Hour AM/PM</button>
+              </div>
+            </div>
+
+            <div className="settings-field">
+              <label>Auto-Hide UI</label>
+              <div className="toggle-row">
+                <button className={`toggle-btn ${autoHideEnabled ? 'active' : ''}`} onClick={() => setAutoHideEnabled(true)}>On</button>
+                <button className={`toggle-btn ${!autoHideEnabled ? 'active' : ''}`} onClick={() => setAutoHideEnabled(false)}>Off</button>
+              </div>
+              {autoHideEnabled && (
+                <div className="slider-row">
+                  <span className="slider-label">Hide after</span>
+                  <input
+                    type="range"
+                    min="3"
+                    max="30"
+                    value={autoHideDelay}
+                    onChange={(e) => setAutoHideDelay(parseInt(e.target.value))}
+                    className="slider"
+                  />
+                  <span className="slider-value">{autoHideDelay}s</span>
+                </div>
+              )}
+              <p className="hint">When enabled, UI elements fade out after inactivity. Move mouse to reveal.</p>
+            </div>
+
+            <div className="settings-field">
               <label>Weather Location</label>
               <div className="location-settings-row">
                 <button className="location-detect-btn" onClick={requestLocation}>
@@ -389,7 +473,7 @@ function App() {
             </div>
 
             <div className="settings-actions">
-              <button className="btn-primary" onClick={saveYoutube}>Save</button>
+              <button className="btn-primary" onClick={saveSettings}>Save</button>
               <button className="btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
             </div>
           </div>

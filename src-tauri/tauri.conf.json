@@ -37,6 +37,9 @@
     ],
     "resources": {
       "../dist": "dist"
+    },
+    "macOS": {
+      "infoPlist": "Info.plist"
     }
   }
 }
