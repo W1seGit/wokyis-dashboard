@@ -1,4 +1,6 @@
-use std::process::Command;
+use std::thread;
+use tauri::Manager;
+use tiny_http::{Header, Request, Response, Server};
 
 #[tauri::command]
 fn get_now_playing() -> Result<String, String> {
@@ -31,7 +33,7 @@ fn get_now_playing() -> Result<String, String> {
         return output
     "#;
 
-    let output = Command::new("osascript")
+    let output = std::process::Command::new("osascript")
         .arg("-e")
         .arg(script)
         .output()
@@ -92,7 +94,7 @@ fn get_next_calendar_event() -> Result<String, String> {
         end sortEvents
     "#;
 
-    let output = Command::new("osascript")
+    let output = std::process::Command::new("osascript")
         .arg("-e")
         .arg(script)
         .output()
@@ -107,12 +109,96 @@ fn get_next_calendar_event() -> Result<String, String> {
 }
 
 #[tauri::command]
-fn open_url(url: String) -> Result<(), String> {
-    Command::new("open")
-        .arg(&url)
+fn open_location_settings() -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
         .spawn()
-        .map_err(|e| format!("Failed to open URL: {}", e))?;
+        .map_err(|e| format!("Failed to open location settings: {}", e))?;
     Ok(())
+}
+
+#[cfg(not(debug_assertions))]
+fn serve_file(dist_path: &std::path::Path, request: Request) {
+    let url = request.url();
+    let file_path = if url == "/" || url == "/index.html" {
+        dist_path.join("index.html")
+    } else {
+        dist_path.join(url.trim_start_matches('/'))
+    };
+
+    // Security: prevent directory traversal
+    let canonical_dist = match std::fs::canonicalize(dist_path) {
+        Ok(p) => p,
+        Err(_) => {
+            let _ = request.respond(Response::from_string("Not Found").with_status_code(404));
+            return;
+        }
+    };
+    let canonical_file = match std::fs::canonicalize(&file_path) {
+        Ok(p) => p,
+        Err(_) => {
+            let _ = request.respond(Response::from_string("Not Found").with_status_code(404));
+            return;
+        }
+    };
+    if !canonical_file.starts_with(&canonical_dist) {
+        let _ = request.respond(Response::from_string("Forbidden").with_status_code(403));
+        return;
+    }
+
+    match std::fs::read(&file_path) {
+        Ok(contents) => {
+            let content_type = match file_path.extension().and_then(|e| e.to_str()) {
+                Some("html") => "text/html",
+                Some("js") => "application/javascript",
+                Some("mjs") => "application/javascript",
+                Some("css") => "text/css",
+                Some("svg") => "image/svg+xml",
+                Some("png") => "image/png",
+                Some("jpg") | Some("jpeg") => "image/jpeg",
+                Some("ico") => "image/x-icon",
+                Some("woff2") => "font/woff2",
+                Some("woff") => "font/woff",
+                Some("ttf") => "font/ttf",
+                _ => "application/octet-stream",
+            };
+
+            let ct_header = Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes()).unwrap();
+            let csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; frame-src https://www.youtube-nocookie.com https://www.youtube.com; img-src 'self' https: data:; connect-src 'self' https: wss: https://*.open-meteo.com https://nominatim.openstreetmap.org; media-src https: blob:";
+            let csp_header = Header::from_bytes(&b"Content-Security-Policy"[..], csp.as_bytes()).unwrap();
+
+            let response = Response::from_data(contents)
+                .with_header(ct_header)
+                .with_header(csp_header);
+            let _ = request.respond(response);
+        }
+        Err(_) => {
+            let _ = request.respond(Response::from_string("Not Found").with_status_code(404));
+        }
+    }
+}
+
+#[cfg(not(debug_assertions))]
+fn start_local_server(app_handle: &tauri::AppHandle) -> Result<u16, String> {
+    let dist_path = app_handle
+        .path()
+        .resolve("dist", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve dist path: {}", e))?;
+
+    log::info!("Serving frontend from: {:?}", dist_path);
+
+    let server = Server::http("127.0.0.1:0")
+        .map_err(|e| format!("Failed to start server: {}", e))?;
+    let port = server.server_addr().to_ip().unwrap().port();
+
+    thread::spawn(move || {
+        for request in server.incoming_requests() {
+            serve_file(&dist_path, request);
+        }
+    });
+
+    log::info!("Local server running on http://127.0.0.1:{}", port);
+    Ok(port)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -120,6 +206,23 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            #[cfg(not(debug_assertions))]
+            {
+                // Production: serve from localhost to fix YouTube embed origin (Error 153)
+                match start_local_server(app.handle()) {
+                    Ok(port) => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let url = format!("http://127.0.0.1:{}", port);
+                            log::info!("Navigating window to {}", url);
+                            let _ = window.navigate(url::Url::parse(&url).unwrap());
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to start local server: {}", e);
+                    }
+                }
+            }
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -132,7 +235,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_now_playing,
             get_next_calendar_event,
-            open_url,
+            open_location_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

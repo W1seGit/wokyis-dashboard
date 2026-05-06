@@ -5,26 +5,33 @@
 }
 
 :root {
-  --text-primary: rgba(255, 255, 255, 0.95);
-  --text-secondary: rgba(255, 255, 255, 0.75);
-  --text-dim: rgba(255, 255, 255, 0.5);
-  --panel-bg: rgba(0, 0, 0, 0.35);
-  --panel-blur: 20px;
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --overlay-opacity: 0.45;
-  --clock-size: clamp(6rem, 14vw, 10rem);
-  --accent: #60a5fa;
+  --bg-deep: #020617;
+  --bg-primary: #0F172A;
+  --bg-secondary: #1E293B;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-dim: #64748B;
+  --accent: #22C55E;
+  --accent-hover: #16A34A;
+  --glass-bg: rgba(15, 23, 42, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.15);
+  --panel-blur: 24px;
   --radius: 16px;
+  --clock-size: clamp(5.5rem, 13vw, 9.5rem);
+  --font-body: 'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Fira Code', 'SF Mono', 'Fira Code', monospace;
 }
 
 html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0a0a0a;
+  font-family: var(--font-body);
+  background: var(--bg-deep);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   user-select: none;
 }
 
@@ -52,44 +59,101 @@ html, body, #root {
   left: 50%;
   width: 1920px;
   height: 1080px;
-  transform: translate(-50%, -50%) scale(1.2);
+  transform: translate(-50%, -50%) scale(1.25);
   pointer-events: none;
   border: none;
 }
 
 @media (min-aspect-ratio: 16/9) {
-  .video-bg iframe {
-    width: 100vw;
-    height: 56.25vw;
-  }
+  .video-bg iframe { width: 100vw; height: 56.25vw; }
 }
-
 @media (max-aspect-ratio: 16/9) {
-  .video-bg iframe {
-    width: 177.78vh;
-    height: 100vh;
-  }
+  .video-bg iframe { width: 177.78vh; height: 100vh; }
 }
 
 .video-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, var(--overlay-opacity));
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .bg-gradient {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(
-    135deg,
-    #0f0f1a 0%,
-    #151530 30%,
-    #0f172a 60%,
-    #0a0a1a 100%
-  );
+  background: radial-gradient(ellipse at 30% 20%, rgba(30, 41, 59, 0.4) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 80%, rgba(15, 23, 42, 0.5) 0%, transparent 60%),
+              var(--bg-deep);
+}
+
+/* ==================== GLASS COMPONENTS ==================== */
+
+.glass-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 14px 22px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.glass-panel:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.glass-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.glass-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.glass-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.2s ease;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 /* ==================== CONTENT ==================== */
@@ -102,7 +166,7 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 40px 60px;
+  padding: 48px 64px;
 }
 
 /* ==================== TOP BAR ==================== */
@@ -113,80 +177,55 @@ html, body, #root {
   justify-content: space-between;
 }
 
-.top-left,
-.top-center,
-.top-right {
+.top-left, .top-center, .top-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-/* Weather widget */
+/* Weather */
 .weather-widget {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 12px 20px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  gap: 18px;
 }
 
 .weather-main {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1.15rem;
+  gap: 12px;
+  font-size: 1.1rem;
   font-weight: 500;
+  color: var(--text-primary);
 }
 
 .weather-icon {
-  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
 }
 
 .weather-temp {
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
 }
 
 .weather-desc {
   color: var(--text-secondary);
+  font-weight: 400;
 }
 
-.dim-text {
-  color: var(--text-dim);
-  font-size: 0.95rem;
-}
-
-/* Location indicator */
 .location-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
   padding-left: 16px;
-  border-left: 1px solid var(--panel-border);
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
-.location-indicator.standalone {
-  padding-left: 0;
-  border-left: none;
-}
-
-.location-pin {
-  font-size: 0.95rem;
+  border-left: 1px solid var(--glass-border);
+  font-size: 0.9rem;
+  color: var(--text-dim);
 }
 
 .location-name {
+  color: var(--text-secondary);
   font-weight: 500;
-}
-
-.location-coords {
-  font-size: 0.8rem;
 }
 
 /* Location prompt */
@@ -194,94 +233,69 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
-.location-btn {
+.location-denied-block {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 20px;
-  border-radius: var(--radius);
-  border: 1px solid var(--panel-border);
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  transition: all 0.2s ease;
-}
-
-.location-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: scale(1.03);
+  gap: 12px;
 }
 
 .location-error {
   color: #f87171;
   font-size: 0.9rem;
-  max-width: 400px;
-  line-height: 1.3;
 }
 
-/* Calendar widget */
-.calendar-widget {
+.location-error-text {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.location-settings-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 12px 20px;
-  font-size: 1rem;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  font-size: 0.9rem;
   font-weight: 500;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  max-width: 700px;
-  overflow: hidden;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.2s ease;
 }
 
-.calendar-icon {
-  font-size: 1.2rem;
+.location-settings-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.4);
+  transform: translateY(-1px);
+}
+
+.dim-text {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+/* Calendar */
+.calendar-widget {
+  font-size: 0.95rem;
+  font-weight: 500;
+  max-width: 700px;
+  overflow: hidden;
+  color: var(--text-secondary);
+}
+
+.calendar-widget svg {
   flex-shrink: 0;
+  color: var(--text-dim);
 }
 
 .calendar-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-secondary);
-}
-
-/* Icon buttons */
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--panel-border);
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  cursor: pointer;
-  font-size: 1.25rem;
-  color: var(--text-primary);
-  transition: all 0.2s ease;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-}
-
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: scale(1.05);
 }
 
 /* ==================== CLOCK AREA ==================== */
@@ -291,50 +305,50 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .clock {
   display: flex;
   align-items: baseline;
-  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5), 0 0 60px rgba(96, 165, 250, 0.15);
+  font-family: var(--font-mono);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5), 0 0 80px rgba(34, 197, 94, 0.08);
 }
 
 .clock-hours,
 .clock-minutes {
   font-size: var(--clock-size);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--text-primary);
 }
 
 .clock-seconds {
-  font-size: calc(var(--clock-size) * 0.65);
+  font-size: calc(var(--clock-size) * 0.62);
   font-weight: 400;
   color: var(--text-secondary);
-  min-width: calc(var(--clock-size) * 1.1);
+  min-width: calc(var(--clock-size) * 1.05);
 }
 
 .clock-sep {
-  font-size: calc(var(--clock-size) * 0.75);
+  font-size: calc(var(--clock-size) * 0.72);
   font-weight: 300;
   color: var(--text-dim);
-  margin: 0 -0.05em;
-  animation: sep-pulse 1s step-end infinite;
+  margin: 0 -0.04em;
+  animation: sep-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes sep-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50% { opacity: 0.25; }
 }
 
 .date-text {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 400;
   color: var(--text-secondary);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
   letter-spacing: 0.02em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* ==================== BOTTOM BAR ==================== */
@@ -345,34 +359,23 @@ html, body, #root {
   justify-content: space-between;
 }
 
-.bottom-left,
-.bottom-right {
+.bottom-left, .bottom-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* Now Playing */
 .now-playing-widget {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 12px 20px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   max-width: 600px;
   overflow: hidden;
 }
 
-.np-icon {
-  font-size: 1.2rem;
+.now-playing-widget svg {
   flex-shrink: 0;
+  color: var(--accent);
 }
 
 .np-text {
@@ -382,18 +385,12 @@ html, body, #root {
   color: var(--text-secondary);
 }
 
-/* Timer Widget */
+/* Timer */
 .timer-widget {
-  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
+  gap: 12px;
+  padding: 18px 22px;
 }
 
 .timer-presets {
@@ -402,19 +399,20 @@ html, body, #root {
 }
 
 .preset-btn {
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 8px;
-  border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-family: 'Inter', sans-serif;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-family: var(--font-body);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .preset-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
 }
 
 .preset-btn.active {
@@ -427,30 +425,29 @@ html, body, #root {
 .timer-display {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.timer-icon {
-  font-size: 1.3rem;
+.timer-display > svg {
+  color: var(--text-dim);
 }
 
 .timer-text {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   min-width: 80px;
   text-align: center;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  color: var(--text-primary);
 }
 
 .timer-btn {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
-  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -459,7 +456,8 @@ html, body, #root {
 }
 
 .timer-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--glass-border-hover);
 }
 
 /* ==================== FOCUS MODE ==================== */
@@ -468,13 +466,14 @@ html, body, #root {
 .focus-mode .bottom-left,
 .focus-mode .weather-desc,
 .focus-mode .date-text {
-  opacity: 0.3;
-  transition: opacity 0.5s ease;
+  opacity: 0.25;
+  transition: opacity 0.6s ease;
 }
 
 .focus-mode .calendar-widget,
 .focus-mode .now-playing-widget {
   opacity: 0;
+  pointer-events: none;
 }
 
 /* ==================== SETTINGS MODAL ==================== */
@@ -486,61 +485,63 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .settings-modal {
-  background: rgba(20, 20, 40, 0.95);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 36px 40px;
-  width: 560px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 40px 44px;
+  width: 540px;
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
 }
 
 .settings-modal h2 {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .settings-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .settings-field label {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .settings-field input {
   padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
   font-size: 0.95rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .settings-field input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
 .settings-field input::placeholder {
@@ -556,154 +557,102 @@ html, body, #root {
   flex: 1;
 }
 
-/* Google Sign-In button */
-.google-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #fff;
-  color: #333;
-  font-size: 0.95rem;
-  font-weight: 500;
-  font-family: 'Inter', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: fit-content;
-}
-
-.google-btn:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-  transform: translateY(-1px);
-}
-
-.google-icon {
-  flex-shrink: 0;
-}
-
-/* Location detect button in settings */
 .location-settings-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
 .location-detect-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 10px 18px;
   border-radius: 10px;
-  border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
   font-size: 0.9rem;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .location-detect-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
 }
 
 .location-detected {
   font-size: 0.9rem;
-  color: #4ade80;
+  color: var(--accent);
   font-weight: 500;
 }
 
 .hint {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-dim);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .settings-actions {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .btn-primary {
-  padding: 10px 24px;
-  border-radius: 10px;
+  padding: 11px 26px;
+  border-radius: 12px;
   border: none;
   background: var(--accent);
   color: #fff;
   font-size: 0.95rem;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
+  background: var(--accent-hover);
   transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
 }
 
 .btn-secondary {
-  padding: 10px 24px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
+  padding: 11px 26px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
   font-size: 0.95rem;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
 }
 
 /* ==================== RESPONSIVE ==================== */
 
 @media (max-width: 1280px) {
-  :root {
-    --clock-size: clamp(4rem, 10vw, 7rem);
-  }
-
-  .content {
-    padding: 24px 32px;
-  }
-
-  .calendar-text,
-  .np-text {
-    max-width: 300px;
-  }
+  :root { --clock-size: clamp(4rem, 10vw, 7rem); }
+  .content { padding: 28px 36px; }
+  .calendar-text, .np-text { max-width: 280px; }
 }
 
 @media (max-width: 800px) {
-  :root {
-    --clock-size: clamp(3rem, 8vw, 5rem);
-  }
-
-  .content {
-    padding: 16px 20px;
-  }
-
-  .top-bar,
-  .bottom-bar {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .weather-widget,
-  .calendar-widget,
-  .now-playing-widget,
-  .timer-widget {
-    padding: 8px 14px;
-    font-size: 0.9rem;
-  }
+  :root { --clock-size: clamp(3rem, 8vw, 5rem); }
+  .content { padding: 18px 22px; }
+  .top-bar, .bottom-bar { flex-direction: column; gap: 10px; }
+  .glass-panel { padding: 10px 16px; font-size: 0.9rem; }
+  .settings-modal { padding: 28px 24px; }
 }
