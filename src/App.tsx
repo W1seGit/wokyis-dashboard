@@ -127,56 +127,7 @@ function makeDefaultTheme(
 }
 
 const BUILT_IN_THEMES: SavedTheme[] = [
-  // Midnight — classic centered layout
-  makeDefaultTheme('Midnight', {
-    bgDeep: '#020617', bgPrimary: '#0F172A', bgSecondary: '#1E293B',
-    textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textDim: '#64748B',
-    accent: '#22C55E', accentHover: '#16A34A',
-    glassBg: 'rgba(15, 23, 42, 0.45)', glassBorder: 'rgba(255, 255, 255, 0.08)',
-  }),
-  // Ocean — weather on the right, airy feel
-  makeDefaultTheme('Ocean', {
-    bgDeep: '#001219', bgPrimary: '#023047', bgSecondary: '#0a4d68',
-    textPrimary: '#e0f7fa', textSecondary: '#90e0ef', textDim: '#48cae4',
-    accent: '#00b4d8', accentHover: '#0096c7',
-    glassBg: 'rgba(2, 48, 71, 0.5)', glassBorder: 'rgba(144, 224, 239, 0.1)',
-  }, {
-    positions: {
-      weather: { x: 85, y: 10 }, calendar: { x: 50, y: 10 },
-      settingsButtons: { x: 15, y: 10 }, clock: { x: 50, y: 45 },
-      date: { x: 50, y: 58 }, nowPlaying: { x: 15, y: 90 },
-      timer: { x: 85, y: 90 },
-    },
-  }),
-  // Forest — settings at bottom center, spread out
-  makeDefaultTheme('Forest', {
-    bgDeep: '#081c15', bgPrimary: '#1b4332', bgSecondary: '#2d6a4f',
-    textPrimary: '#d8f3dc', textSecondary: '#b7e4c7', textDim: '#74c69d',
-    accent: '#52b788', accentHover: '#40916c',
-    glassBg: 'rgba(27, 67, 50, 0.5)', glassBorder: 'rgba(183, 228, 199, 0.1)',
-  }, {
-    positions: {
-      weather: { x: 15, y: 10 }, calendar: { x: 85, y: 10 },
-      settingsButtons: { x: 50, y: 90 }, clock: { x: 50, y: 40 },
-      date: { x: 50, y: 53 }, nowPlaying: { x: 15, y: 90 },
-      timer: { x: 85, y: 90 },
-    },
-  }),
-  // Sunset — asymmetric, clock left-of-center, date to the right
-  makeDefaultTheme('Sunset', {
-    bgDeep: '#1a0f1a', bgPrimary: '#2d1b2e', bgSecondary: '#4a2040',
-    textPrimary: '#ffe4e1', textSecondary: '#ffb7b2', textDim: '#ff9aa2',
-    accent: '#ff6b6b', accentHover: '#ee5253',
-    glassBg: 'rgba(45, 27, 46, 0.5)', glassBorder: 'rgba(255, 183, 178, 0.12)',
-  }, {
-    positions: {
-      weather: { x: 85, y: 15 }, calendar: { x: 15, y: 85 },
-      settingsButtons: { x: 15, y: 10 }, clock: { x: 40, y: 45 },
-      date: { x: 70, y: 45 }, nowPlaying: { x: 50, y: 85 },
-      timer: { x: 85, y: 85 },
-    },
-  }),
-  // Minimal — ultra clean, only clock + date + settings visible
+  // Minimal — ultra clean, only clock + date visible
   makeDefaultTheme('Minimal', {
     bgDeep: '#000000', bgPrimary: '#111111', bgSecondary: '#222222',
     textPrimary: '#ffffff', textSecondary: '#aaaaaa', textDim: '#666666',
@@ -193,21 +144,6 @@ const BUILT_IN_THEMES: SavedTheme[] = [
     visibility: {
       weather: false, calendar: false, settingsButtons: true,
       clock: true, date: true, nowPlaying: false, timer: false,
-    },
-  }),
-  // Cyber — all corners used, timer top-center
-  makeDefaultTheme('Cyber', {
-    bgDeep: '#0d0221', bgPrimary: '#1a0b2e', bgSecondary: '#2d1b4e',
-    textPrimary: '#f0e6ff', textSecondary: '#c77dff', textDim: '#9d4edd',
-    accent: '#ff00ff', accentHover: '#e0aaff',
-    glassBg: 'rgba(26, 11, 46, 0.5)', glassBorder: 'rgba(199, 125, 255, 0.15)',
-    customCss: '[data-widget="clock"] { text-shadow: 0 0 20px rgba(255,0,255,0.3); }',
-  }, {
-    positions: {
-      weather: { x: 15, y: 15 }, calendar: { x: 85, y: 15 },
-      settingsButtons: { x: 15, y: 85 }, clock: { x: 50, y: 45 },
-      date: { x: 50, y: 58 }, nowPlaying: { x: 85, y: 85 },
-      timer: { x: 50, y: 15 },
     },
   }),
 ];
@@ -239,7 +175,6 @@ const IconCalendar   = () => <Ico d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v
 const IconTrash      = () => <Ico d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />;
 const IconUpload     = () => <Ico d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />;
 const IconPlus       = () => <Ico d="M12 5v14M5 12h14" />;
-const IconSearch     = () => <Ico d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" />;
 const IconGeneral    = () => <Ico d="M12 20h9M12 20V4m0 0H3m9 0v16" />;
 const IconBg         = () => <Ico d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />;
 const IconWeatherIco = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />;
@@ -404,7 +339,8 @@ function App() {
   /* --- settings --- */
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'general' | 'appearance' | 'background' | 'weather' | 'widgets' | 'layout' | 'themes'>('general');
-  const [settingsSearch, setSettingsSearch] = useState('');
+  const [settingsPos, setSettingsPos] = useState({ x: 60, y: 40 });
+  const settingsDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   /* --- theme --- */
   const [theme, setTheme] = useState<ThemeColors>(DEFAULT_THEME);
@@ -787,8 +723,29 @@ function App() {
   };
 
   /* ==========================================================
-     DRAGGABLE LAYOUT
-     ========================================================== */
+      DRAGGABLE SETTINGS WINDOW
+      ========================================================== */
+  const startSettingsDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    settingsDragRef.current = { startX: e.clientX, startY: e.clientY, origX: settingsPos.x, origY: settingsPos.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!settingsDragRef.current) return;
+      const dx = ev.clientX - settingsDragRef.current.startX;
+      const dy = ev.clientY - settingsDragRef.current.startY;
+      setSettingsPos({ x: settingsDragRef.current.origX + dx, y: settingsDragRef.current.origY + dy });
+    };
+    const onUp = () => {
+      settingsDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  /* ==========================================================
+      DRAGGABLE LAYOUT
+      ========================================================== */
   const startDrag = (e: React.MouseEvent, key: string) => {
     if (!editLayoutMode) return;
     const target = e.target as HTMLElement;
@@ -1003,7 +960,7 @@ function App() {
      { id: 'layout', label: 'Layout', icon: <IconLayout /> },
      { id: 'themes', label: 'Themes', icon: <IconThemes /> },
    ];
-  const visibleTabs = settingsSearch ? tabs.filter((t) => t.label.toLowerCase().includes(settingsSearch.toLowerCase())) : tabs;
+  const visibleTabs = tabs;
 
   /* ==========================================================
      RENDER WIDGET WRAPPER
@@ -1266,28 +1223,26 @@ function App() {
         )}
       </div>
 
-      {/* Settings Modal with Sidebar */}
+      {/* Draggable Settings Window */}
       {showSettings && (
-        <div className="settings-overlay" onClick={() => setShowSettings(false)}>
-          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-            {/* Sidebar */}
-            <div className="settings-sidebar">
-              <div className="settings-search">
-                <IconSearch />
-                <input type="text" placeholder="Search..." value={settingsSearch} onChange={(e) => setSettingsSearch(e.target.value)} />
-              </div>
-              <nav className="settings-nav">
-                {visibleTabs.map((tab) => (
-                  <button key={tab.id} className={`settings-nav-item ${settingsTab === tab.id ? 'active' : ''}`} onClick={() => { setSettingsTab(tab.id); setSettingsSearch(''); }}>
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </nav>
-            </div>
-
-            {/* Content */}
-            <div className="settings-content">
+        <div
+          className="settings-window"
+          style={{ left: settingsPos.x, top: settingsPos.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="settings-window-titlebar" onMouseDown={startSettingsDrag}>
+            <span>Settings</span>
+            <button className="settings-window-close" onClick={() => setShowSettings(false)}><IconX /></button>
+          </div>
+          <div className="settings-window-body">
+            <nav className="settings-window-tabs">
+              {visibleTabs.map((tab) => (
+                <button key={tab.id} className={`settings-window-tab ${settingsTab === tab.id ? 'active' : ''}`} onClick={() => setSettingsTab(tab.id)} title={tab.label}>
+                  {tab.icon}
+                </button>
+              ))}
+            </nav>
+            <div className="settings-window-content">
               {/* GENERAL */}
               {settingsTab === 'general' && (
                 <div className="settings-section">
@@ -1797,9 +1752,9 @@ function App() {
                 </div>
               )}
 
-              <div className="settings-actions">
-                <button className="btn-primary" onClick={saveSettings}>Save & Close</button>
-                <button className="btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>
+              <div className="settings-window-actions">
+                <button className="btn-primary" onClick={saveSettings}>Save</button>
+                <button className="btn-secondary" onClick={() => setShowSettings(false)}>Close</button>
               </div>
             </div>
           </div>
