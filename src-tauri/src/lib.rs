@@ -211,6 +211,18 @@ fn delete_theme_file(name: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn reset_app_data() -> Result<(), String> {
+    let mut path = dirs::config_dir().expect("Failed to get config dir");
+    path.push("com.wokyis.dashboard");
+    log::info!("[reset] Removing app data directory: {:?}", path);
+    if path.exists() {
+        fs::remove_dir_all(&path).map_err(|e| format!("Failed to remove app data: {}", e))?;
+    }
+    log::info!("[reset] App data cleared");
+    Ok(())
+}
+
 /* ============================================================
    FILE-BASED STORAGE (replaces tauri-plugin-store)
    ============================================================ */
@@ -411,6 +423,7 @@ pub fn run() {
             list_theme_files,
             read_theme_file,
             delete_theme_file,
+            reset_app_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

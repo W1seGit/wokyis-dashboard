@@ -1222,6 +1222,20 @@ function App() {
                     )}
                     <p className="hint">Clock and date are always visible. Other elements fade out after inactivity.</p>
                   </div>
+                  <div className="settings-field">
+                    <label>Reset</label>
+                    <button className="btn-danger" onClick={async () => {
+                      if (!confirm('This will erase ALL settings, themes, and saved data and restore the app to its original state. This cannot be undone. Are you sure?')) return;
+                      try {
+                        await invoke('reset_app_data');
+                        localStorage.clear();
+                        window.location.reload();
+                      } catch (err) {
+                        alert('Reset failed: ' + err);
+                      }
+                    }}>Reset to Defaults</button>
+                    <p className="hint">Clears all settings, themes, and data. The app will restart as if running for the first time.</p>
+                  </div>
                 </div>
               )}
 
