@@ -382,6 +382,7 @@ fn start_local_server(app_handle: &tauri::AppHandle) -> Result<u16, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             #[cfg(not(debug_assertions))]
             {

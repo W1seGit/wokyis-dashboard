@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-// import { open } from '@tauri-apps/plugin-shell';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import JSZip from 'jszip';
 import { storeSet, storeGet, storeDelete, migrateFromLocalStorage } from './store';
 import './App.css';
@@ -46,8 +46,9 @@ interface Visibility {
 
 interface SavedTheme {
   id: string; name: string;
-  backgroundType: 'youtube' | 'image';
+  backgroundType: 'youtube' | 'image' | 'video';
   youtubeUrl: string; youtubeEndTime: number | null; imageUrl: string;
+  videoUrl: string; videoPath: string;
   use24Hour: boolean; useFahrenheit: boolean;
   autoHideEnabled: boolean; autoHideDelay: number;
   lat: number | null; lon: number | null; city: string;
@@ -103,6 +104,8 @@ function makeDefaultTheme(
     youtubeUrl: '',
     youtubeEndTime: null,
     imageUrl: '',
+    videoUrl: '',
+    videoPath: '',
     use24Hour: true,
     useFahrenheit: false,
     autoHideEnabled: false,
@@ -255,6 +258,7 @@ const IconStorm      = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 
 const IconImage      = () => <Ico d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14l4-4 5 5 6-6 3 3z" />;
 const IconYoutube    = () => <Ico d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.94 2C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />;
 const IconFolder     = () => <Ico d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />;
+const IconVideo      = () => <Ico d="M23 7l-7 5 7 5V7zM2 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />;
 
 
 /* ============================================================
@@ -266,6 +270,7 @@ async function saveThemeToFile(theme: SavedTheme): Promise<void> {
   zip.file('theme.json', JSON.stringify(theme.theme, null, 2));
   zip.file('settings.json', JSON.stringify({
     backgroundType: theme.backgroundType, youtubeUrl: theme.youtubeUrl, youtubeEndTime: theme.youtubeEndTime, imageUrl: theme.imageUrl,
+    videoUrl: theme.videoUrl, videoPath: theme.videoPath,
     use24Hour: theme.use24Hour, useFahrenheit: theme.useFahrenheit, autoHideEnabled: theme.autoHideEnabled, autoHideDelay: theme.autoHideDelay,
     lat: theme.lat, lon: theme.lon, city: theme.city, positions: theme.positions, visibility: theme.visibility,
   }, null, 2));
@@ -296,6 +301,8 @@ async function loadThemesFromFiles(): Promise<SavedTheme[]> {
         youtubeUrl: settings.youtubeUrl || '',
         youtubeEndTime: settings.youtubeEndTime ?? null,
         imageUrl: settings.imageUrl || '',
+        videoUrl: settings.videoUrl || '',
+        videoPath: settings.videoPath || '',
         use24Hour: settings.use24Hour ?? true,
         useFahrenheit: settings.useFahrenheit ?? false,
         autoHideEnabled: settings.autoHideEnabled ?? false,
@@ -340,10 +347,12 @@ function App() {
   const [renameValue, setRenameValue] = useState('');
 
   /* --- background --- */
-  const [backgroundType, setBackgroundType] = useState<'youtube' | 'image'>('youtube');
+  const [backgroundType, setBackgroundType] = useState<'youtube' | 'image' | 'video'>('youtube');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [youtubeEndTime, setYoutubeEndTime] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoPath, setVideoPath] = useState('');
 
   /* --- clock --- */
   const [use24Hour, setUse24Hour] = useState(true);
@@ -404,7 +413,7 @@ function App() {
   useEffect(() => {
     const init = async () => {
       await migrateFromLocalStorage();
-      const bgType = await storeGet<'youtube' | 'image'>('backgroundType');
+      const bgType = await storeGet<'youtube' | 'image' | 'video'>('backgroundType');
       if (bgType) setBackgroundType(bgType);
       const ytu = await storeGet<string>('youtubeUrl');
       if (ytu !== null) setYoutubeUrl(ytu);
@@ -412,6 +421,10 @@ function App() {
       setYoutubeEndTime(yet ?? null);
       const img = await storeGet<string>('imageUrl');
       if (img !== null) setImageUrl(img);
+      const vid = await storeGet<string>('videoUrl');
+      if (vid !== null) setVideoUrl(vid);
+      const vpath = await storeGet<string>('videoPath');
+      if (vpath !== null) setVideoPath(vpath);
       const u24 = await storeGet<boolean>('use24Hour');
       setUse24Hour(u24 !== false);
       const uf = await storeGet<boolean>('useFahrenheit');
@@ -467,6 +480,8 @@ function App() {
               youtubeUrl: old.youtubeUrl || '',
               youtubeEndTime: old.youtubeEndTime ?? null,
               imageUrl: old.imageUrl || '',
+              videoUrl: old.videoUrl || '',
+              videoPath: old.videoPath || '',
               use24Hour: old.use24Hour ?? true,
               useFahrenheit: old.useFahrenheit ?? false,
               autoHideEnabled: old.autoHideEnabled ?? false,
@@ -630,6 +645,19 @@ function App() {
     if (youtubeEndTime && youtubeEndTime > 0) url += `&end=${youtubeEndTime}`;
     return url;
   }, [videoId, youtubeEndTime]);
+
+  const videoBackgroundSrc = useMemo(() => {
+    if (backgroundType !== 'video') return null;
+    if (videoPath) {
+      try {
+        return convertFileSrc(videoPath);
+      } catch {
+        return null;
+      }
+    }
+    if (videoUrl) return videoUrl;
+    return null;
+  }, [backgroundType, videoPath, videoUrl]);
 
   /* ==========================================================
      AUTO-HIDE
@@ -808,7 +836,7 @@ function App() {
      ========================================================== */
   const buildCurrentTheme = (name: string): SavedTheme => ({
     id: genId(), name,
-    backgroundType, youtubeUrl, youtubeEndTime, imageUrl,
+    backgroundType, youtubeUrl, youtubeEndTime, imageUrl, videoUrl, videoPath,
     use24Hour, useFahrenheit, autoHideEnabled, autoHideDelay,
     lat, lon, city: locationCity,
     theme, positions, visibility,
@@ -821,9 +849,10 @@ function App() {
     setLat(t.lat); setLon(t.lon); setLocationCity(t.city);
     setTheme(t.theme); setPositions(t.positions); setVisibility(t.visibility);
     setActiveThemeId(t.id); await storeSet(ACTIVE_THEME_KEY, t.id);
+    setVideoUrl(t.videoUrl); setVideoPath(t.videoPath);
     await storeSet('backgroundType', t.backgroundType); await storeSet('youtubeUrl', t.youtubeUrl);
     await storeSet('youtubeEndTime', t.youtubeEndTime ?? null); await storeSet('imageUrl', t.imageUrl);
-    await storeSet('use24Hour', t.use24Hour); await storeSet('useFahrenheit', t.useFahrenheit);
+    await storeSet('videoUrl', t.videoUrl); await storeSet('videoPath', t.videoPath);
     await storeSet('autoHideEnabled', t.autoHideEnabled); await storeSet('autoHideDelay', t.autoHideDelay);
     if (t.lat !== null) await storeSet('lat', t.lat); if (t.lon !== null) await storeSet('lon', t.lon);
     await storeSet('locationCity', t.city); await storeSet('theme', t.theme);
@@ -909,7 +938,7 @@ function App() {
   const saveSettings = async () => {
     await storeSet('backgroundType', backgroundType); await storeSet('youtubeUrl', youtubeUrl);
     await storeSet('youtubeEndTime', youtubeEndTime ?? null); await storeSet('imageUrl', imageUrl);
-    await storeSet('use24Hour', use24Hour); await storeSet('useFahrenheit', useFahrenheit);
+    await storeSet('videoUrl', videoUrl); await storeSet('videoPath', videoPath);
     await storeSet('autoHideEnabled', autoHideEnabled); await storeSet('autoHideDelay', autoHideDelay);
     await storeSet('theme', theme); await storeSet('positions', positions);
     await storeSet('visibility', visibility);
@@ -1098,7 +1127,13 @@ function App() {
           <div className="video-overlay" />
         </div>
       )}
-      {((backgroundType === 'youtube' && !youtubeSrc) || (backgroundType === 'image' && !imageUrl)) && <div className="bg-gradient" />}
+      {backgroundType === 'video' && videoBackgroundSrc && (
+        <div className="video-bg">
+          <video src={videoBackgroundSrc} autoPlay loop muted playsInline className="video-bg-element" />
+          <div className="video-overlay" />
+        </div>
+      )}
+      {((backgroundType === 'youtube' && !youtubeSrc) || (backgroundType === 'image' && !imageUrl) || (backgroundType === 'video' && !videoBackgroundSrc)) && <div className="bg-gradient" />}
 
       {/* Snap Guides */}
       {editLayoutMode && (
@@ -1270,12 +1305,16 @@ function App() {
                   <div className="settings-field">
                     <label>Reset</label>
                     <button className="btn-danger" onClick={async () => {
-                      if (!confirm('This will erase ALL settings, themes, and saved data and restore the app to its original state. This cannot be undone. Are you sure?')) return;
                       try {
+                        console.log('[reset] Starting reset...');
                         await invoke('reset_app_data');
-                        localStorage.clear();
-                        window.location.reload();
+                        console.log('[reset] App data cleared');
+                        setTimeout(() => {
+                          console.log('[reset] Reloading window...');
+                          window.location.reload();
+                        }, 500);
                       } catch (err) {
+                        console.error('[reset] Failed:', err);
                         alert('Reset failed: ' + err);
                       }
                     }}>Reset to Defaults</button>
@@ -1293,6 +1332,7 @@ function App() {
                     <div className="toggle-row">
                       <button className={`toggle-btn ${backgroundType === 'youtube' ? 'active' : ''}`} onClick={() => setBackgroundType('youtube')}><IconYoutube /> YouTube</button>
                       <button className={`toggle-btn ${backgroundType === 'image' ? 'active' : ''}`} onClick={() => setBackgroundType('image')}><IconImage /> Image</button>
+                      <button className={`toggle-btn ${backgroundType === 'video' ? 'active' : ''}`} onClick={() => setBackgroundType('video')}><IconVideo /> Video</button>
                     </div>
                   </div>
                   {backgroundType === 'youtube' && (
@@ -1314,6 +1354,33 @@ function App() {
                       <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/wallpaper.jpg" />
                       <p className="hint">Paste a direct image link. Supports JPG, PNG, WebP.</p>
                     </div>
+                  )}
+                  {backgroundType === 'video' && (
+                    <>
+                      <div className="settings-field">
+                        <label>Local Video File</label>
+                        <div className="city-search-row">
+                          <input type="text" value={videoPath ? videoPath.split(/[\\/]/).pop() : ''} placeholder="No file selected" readOnly />
+                          <button className="btn-primary small" onClick={async () => {
+                            try {
+                              const selected = await open({ multiple: false, filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mov', 'mkv', 'avi'] }] });
+                              if (selected) {
+                                const path = typeof selected === 'string' ? selected : (selected as any).path || '';
+                                if (path) { setVideoPath(path); setVideoUrl(''); }
+                              }
+                            } catch (err) {
+                              console.error('File picker failed:', err);
+                            }
+                          }}>Browse</button>
+                        </div>
+                        <p className="hint">Select a video file from your computer. Supports MP4, WebM, MOV, MKV, AVI.</p>
+                      </div>
+                      <div className="settings-field">
+                        <label>Or Video URL</label>
+                        <input type="text" value={videoUrl} onChange={(e) => { setVideoUrl(e.target.value); setVideoPath(''); }} placeholder="https://example.com/video.mp4" />
+                        <p className="hint">Paste a direct link to a video file (MP4, WebM). This will override the local file.</p>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -1468,6 +1535,8 @@ function App() {
                                 youtubeUrl: settings.youtubeUrl || '',
                                 youtubeEndTime: settings.youtubeEndTime ?? null,
                                 imageUrl: settings.imageUrl || '',
+                                videoUrl: settings.videoUrl || '',
+                                videoPath: settings.videoPath || '',
                                 use24Hour: settings.use24Hour ?? true,
                                 useFahrenheit: settings.useFahrenheit ?? false,
                                 autoHideEnabled: settings.autoHideEnabled ?? false,

@@ -64,6 +64,15 @@ html, body, #root {
   border: none;
 }
 
+.video-bg-element {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
 @media (min-aspect-ratio: 16/9) {
   .video-bg iframe { width: 100vw; height: 56.25vw; }
 }
