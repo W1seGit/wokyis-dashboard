@@ -187,8 +187,17 @@ fn start_local_server(app_handle: &tauri::AppHandle) -> Result<u16, String> {
 
     log::info!("Serving frontend from: {:?}", dist_path);
 
-    let server = Server::http("127.0.0.1:0")
-        .map_err(|e| format!("Failed to start server: {}", e))?;
+    // Try a fixed port range first so the origin is stable across restarts.
+    // localStorage is scoped to origin (scheme+host+port), so a random port
+    // causes all persisted data to be lost on every app restart.
+    let server = match (14200..=14210)
+        .find_map(|port| Server::http(format!("127.0.0.1:{}", port)).ok())
+    {
+        Some(s) => s,
+        None => Server::http("127.0.0.1:0")
+            .map_err(|e| format!("Failed to start server: {}", e))?,
+    };
+
     let port = server.server_addr().to_ip().unwrap().port();
 
     thread::spawn(move || {
