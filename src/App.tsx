@@ -118,43 +118,88 @@ function makeDefaultTheme(
 }
 
 const BUILT_IN_THEMES: SavedTheme[] = [
+  // Midnight — classic centered layout
   makeDefaultTheme('Midnight', {
     bgDeep: '#020617', bgPrimary: '#0F172A', bgSecondary: '#1E293B',
     textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textDim: '#64748B',
     accent: '#22C55E', accentHover: '#16A34A',
     glassBg: 'rgba(15, 23, 42, 0.45)', glassBorder: 'rgba(255, 255, 255, 0.08)',
   }),
+  // Ocean — weather on the right, airy feel
   makeDefaultTheme('Ocean', {
     bgDeep: '#001219', bgPrimary: '#023047', bgSecondary: '#0a4d68',
     textPrimary: '#e0f7fa', textSecondary: '#90e0ef', textDim: '#48cae4',
     accent: '#00b4d8', accentHover: '#0096c7',
     glassBg: 'rgba(2, 48, 71, 0.5)', glassBorder: 'rgba(144, 224, 239, 0.1)',
+  }, {
+    positions: {
+      weather: { x: 85, y: 10 }, calendar: { x: 50, y: 10 },
+      settingsButtons: { x: 15, y: 10 }, clock: { x: 50, y: 45 },
+      date: { x: 50, y: 58 }, nowPlaying: { x: 15, y: 90 },
+      timer: { x: 85, y: 90 },
+    },
   }),
+  // Forest — settings at bottom center, spread out
   makeDefaultTheme('Forest', {
     bgDeep: '#081c15', bgPrimary: '#1b4332', bgSecondary: '#2d6a4f',
     textPrimary: '#d8f3dc', textSecondary: '#b7e4c7', textDim: '#74c69d',
     accent: '#52b788', accentHover: '#40916c',
     glassBg: 'rgba(27, 67, 50, 0.5)', glassBorder: 'rgba(183, 228, 199, 0.1)',
+  }, {
+    positions: {
+      weather: { x: 15, y: 10 }, calendar: { x: 85, y: 10 },
+      settingsButtons: { x: 50, y: 90 }, clock: { x: 50, y: 40 },
+      date: { x: 50, y: 53 }, nowPlaying: { x: 15, y: 90 },
+      timer: { x: 85, y: 90 },
+    },
   }),
+  // Sunset — asymmetric, clock left-of-center, date to the right
   makeDefaultTheme('Sunset', {
     bgDeep: '#1a0f1a', bgPrimary: '#2d1b2e', bgSecondary: '#4a2040',
     textPrimary: '#ffe4e1', textSecondary: '#ffb7b2', textDim: '#ff9aa2',
     accent: '#ff6b6b', accentHover: '#ee5253',
     glassBg: 'rgba(45, 27, 46, 0.5)', glassBorder: 'rgba(255, 183, 178, 0.12)',
+  }, {
+    positions: {
+      weather: { x: 85, y: 15 }, calendar: { x: 15, y: 85 },
+      settingsButtons: { x: 15, y: 10 }, clock: { x: 40, y: 45 },
+      date: { x: 70, y: 45 }, nowPlaying: { x: 50, y: 85 },
+      timer: { x: 85, y: 85 },
+    },
   }),
+  // Minimal — ultra clean, only clock + date + settings visible
   makeDefaultTheme('Minimal', {
     bgDeep: '#000000', bgPrimary: '#111111', bgSecondary: '#222222',
     textPrimary: '#ffffff', textSecondary: '#aaaaaa', textDim: '#666666',
-    accent: '#ffffff', accentHover: '#dddddd',
+    accent: '#555555', accentHover: '#777777',
     glassBg: 'rgba(17, 17, 17, 0.6)', glassBorder: 'rgba(255, 255, 255, 0.1)',
     panelBlur: 16,
+  }, {
+    positions: {
+      weather: { x: 15, y: 10 }, calendar: { x: 50, y: 10 },
+      settingsButtons: { x: 85, y: 10 }, clock: { x: 50, y: 50 },
+      date: { x: 50, y: 62 }, nowPlaying: { x: 15, y: 90 },
+      timer: { x: 85, y: 90 },
+    },
+    visibility: {
+      weather: false, calendar: false, settingsButtons: true,
+      clock: true, date: true, nowPlaying: false, timer: false,
+    },
   }),
+  // Cyber — all corners used, timer top-center
   makeDefaultTheme('Cyber', {
     bgDeep: '#0d0221', bgPrimary: '#1a0b2e', bgSecondary: '#2d1b4e',
     textPrimary: '#f0e6ff', textSecondary: '#c77dff', textDim: '#9d4edd',
     accent: '#ff00ff', accentHover: '#e0aaff',
     glassBg: 'rgba(26, 11, 46, 0.5)', glassBorder: 'rgba(199, 125, 255, 0.15)',
     customCss: '[data-widget="clock"] { text-shadow: 0 0 20px rgba(255,0,255,0.3); }',
+  }, {
+    positions: {
+      weather: { x: 15, y: 15 }, calendar: { x: 85, y: 15 },
+      settingsButtons: { x: 15, y: 85 }, clock: { x: 50, y: 45 },
+      date: { x: 50, y: 58 }, nowPlaying: { x: 85, y: 85 },
+      timer: { x: 50, y: 15 },
+    },
   }),
 ];
 
