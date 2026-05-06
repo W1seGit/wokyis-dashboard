@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::thread;
 use tauri::Manager;
 use tiny_http::{Header, Request, Response, Server};
@@ -117,6 +120,68 @@ fn open_location_settings() -> Result<(), String> {
     Ok(())
 }
 
+/* ============================================================
+   FILE-BASED STORAGE (replaces tauri-plugin-store)
+   ============================================================ */
+
+fn data_file_path() -> PathBuf {
+    let mut path = dirs::config_dir().expect("Failed to get config dir");
+    path.push("com.wokyis.dashboard");
+    let _ = fs::create_dir_all(&path);
+    path.push("data.json");
+    path
+}
+
+fn load_data_file() -> HashMap<String, serde_json::Value> {
+    let path = data_file_path();
+    if !path.exists() {
+        return HashMap::new();
+    }
+    match fs::read_to_string(&path) {
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|_| HashMap::new()),
+        Err(_) => HashMap::new(),
+    }
+}
+
+fn save_data_file(data: &HashMap<String, serde_json::Value>) {
+    let path = data_file_path();
+    if let Ok(json) = serde_json::to_string_pretty(data) {
+        let _ = fs::write(&path, json);
+    }
+}
+
+#[tauri::command]
+fn app_data_set(key: String, value: serde_json::Value) {
+    let mut data = load_data_file();
+    data.insert(key, value);
+    save_data_file(&data);
+}
+
+#[tauri::command]
+fn app_data_get(key: String) -> Option<serde_json::Value> {
+    let data = load_data_file();
+    data.get(&key).cloned()
+}
+
+#[tauri::command]
+fn app_data_delete(key: String) {
+    let mut data = load_data_file();
+    data.remove(&key);
+    save_data_file(&data);
+}
+
+#[tauri::command]
+fn app_data_migrate(keys: Vec<String>) -> HashMap<String, serde_json::Value> {
+    let data = load_data_file();
+    let mut migrated = HashMap::new();
+    for key in keys {
+        if let Some(val) = data.get(&key) {
+            migrated.insert(key.clone(), val.clone());
+        }
+    }
+    migrated
+}
+
 #[cfg(not(debug_assertions))]
 fn serve_file(dist_path: &std::path::Path, request: Request) {
     let url = request.url();
@@ -214,7 +279,6 @@ fn start_local_server(app_handle: &tauri::AppHandle) -> Result<u16, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             #[cfg(not(debug_assertions))]
             {
@@ -246,6 +310,10 @@ pub fn run() {
             get_now_playing,
             get_next_calendar_event,
             open_location_settings,
+            app_data_set,
+            app_data_get,
+            app_data_delete,
+            app_data_migrate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
