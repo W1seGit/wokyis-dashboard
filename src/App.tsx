@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { storeSet, storeGet, storeDelete, migrateFromLocalStorage } from './store';
 import './App.css';
 
 /* ============================================================
@@ -60,12 +61,17 @@ const DEFAULT_VISIBILITY: Visibility = {
 const PRESETS_KEY = 'wokyis_presets';
 const ACTIVE_PRESET_KEY = 'wokyis_active_preset';
 
-function loadPresets(): Preset[] {
-  try { const raw = localStorage.getItem(PRESETS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+async function loadPresets(): Promise<Preset[]> {
+  try {
+    const val = await storeGet<Preset[] | string>(PRESETS_KEY);
+    if (!val) return [];
+    if (typeof val === 'string') return JSON.parse(val);
+    return Array.isArray(val) ? val : [];
+  } catch { return []; }
 }
-function savePresets(p: Preset[]) { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); }
-function loadActivePreset(): string | null { return localStorage.getItem(ACTIVE_PRESET_KEY); }
-function saveActivePreset(id: string | null) { if (id) localStorage.setItem(ACTIVE_PRESET_KEY, id); else localStorage.removeItem(ACTIVE_PRESET_KEY); }
+async function savePresets(p: Preset[]) { await storeSet(PRESETS_KEY, p); }
+async function loadActivePreset(): Promise<string | null> { return await storeGet<string>(ACTIVE_PRESET_KEY); }
+async function saveActivePreset(id: string | null) { if (id) await storeSet(ACTIVE_PRESET_KEY, id); else await storeDelete(ACTIVE_PRESET_KEY); }
 function genId() { return Math.random().toString(36).slice(2, 10); }
 function hexToRgba(hex: string, a: number): string {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -129,8 +135,8 @@ function App() {
   useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
 
   /* --- presets --- */
-  const [presets, setPresets] = useState<Preset[]>(loadPresets);
-  const [activePresetId, setActivePresetId] = useState<string | null>(loadActivePreset);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [newPresetName, setNewPresetName] = useState('');
   const [showNewPresetInput, setShowNewPresetInput] = useState(false);
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
@@ -197,22 +203,46 @@ function App() {
      PERSISTENCE
      ========================================================== */
   useEffect(() => {
-    setBackgroundType((localStorage.getItem('backgroundType') as 'youtube' | 'image') || 'youtube');
-    setYoutubeUrl(localStorage.getItem('youtubeUrl') || '');
-    const et = localStorage.getItem('youtubeEndTime'); setYoutubeEndTime(et ? parseInt(et) : null);
-    setImageUrl(localStorage.getItem('imageUrl') || '');
-    setUse24Hour(localStorage.getItem('use24Hour') !== 'false');
-    setUseFahrenheit(localStorage.getItem('useFahrenheit') === 'true');
-    setAutoHideEnabled(localStorage.getItem('autoHideEnabled') === 'true');
-    const ahd = localStorage.getItem('autoHideDelay'); setAutoHideDelay(ahd ? parseInt(ahd) : 5);
-    setLat((() => { const v = localStorage.getItem('lat'); return v ? parseFloat(v) : null; })());
-    setLon((() => { const v = localStorage.getItem('lon'); return v ? parseFloat(v) : null; })());
-    setLocationCity(localStorage.getItem('locationCity') || '');
-    const posRaw = localStorage.getItem('positions'); if (posRaw) { try { setPositions(JSON.parse(posRaw)); } catch {} }
-    const visRaw = localStorage.getItem('visibility'); if (visRaw) { try { setVisibility(JSON.parse(visRaw)); } catch {} }
-    const ts = localStorage.getItem('timerSeconds'); const tt = localStorage.getItem('timerTotal');
-    if (ts) setTimerSeconds(parseInt(ts)); if (tt) setTimerTotal(parseInt(tt));
-    const savedTheme = localStorage.getItem('theme'); if (savedTheme) { try { setTheme(JSON.parse(savedTheme)); } catch {} }
+    const init = async () => {
+      await migrateFromLocalStorage();
+      const bgType = await storeGet<'youtube' | 'image'>('backgroundType');
+      if (bgType) setBackgroundType(bgType);
+      const ytu = await storeGet<string>('youtubeUrl');
+      if (ytu !== null) setYoutubeUrl(ytu);
+      const yet = await storeGet<number>('youtubeEndTime');
+      setYoutubeEndTime(yet ?? null);
+      const img = await storeGet<string>('imageUrl');
+      if (img !== null) setImageUrl(img);
+      const u24 = await storeGet<boolean>('use24Hour');
+      setUse24Hour(u24 !== false);
+      const uf = await storeGet<boolean>('useFahrenheit');
+      setUseFahrenheit(uf === true);
+      const ahe = await storeGet<boolean>('autoHideEnabled');
+      setAutoHideEnabled(ahe === true);
+      const ahd = await storeGet<number>('autoHideDelay');
+      setAutoHideDelay(ahd ?? 5);
+      const lt = await storeGet<number>('lat');
+      setLat(lt ?? null);
+      const ln = await storeGet<number>('lon');
+      setLon(ln ?? null);
+      const lc = await storeGet<string>('locationCity');
+      if (lc !== null) setLocationCity(lc);
+      const pos = await storeGet<Record<string, Pos>>('positions');
+      if (pos) setPositions(pos);
+      const vis = await storeGet<Visibility>('visibility');
+      if (vis) setVisibility(vis);
+      const ts = await storeGet<number>('timerSeconds');
+      const tt = await storeGet<number>('timerTotal');
+      if (ts !== null) setTimerSeconds(ts);
+      if (tt !== null) setTimerTotal(tt);
+      const thm = await storeGet<Theme>('theme');
+      if (thm) setTheme(thm);
+      const pr = await loadPresets();
+      setPresets(pr);
+      const ap = await loadActivePreset();
+      setActivePresetId(ap);
+    };
+    init();
   }, []);
 
   /* ==========================================================
@@ -320,7 +350,7 @@ function App() {
 
   const toggleTimer = () => { if (!timerRunning && timerSeconds === 0) setTimerSeconds(timerTotal); setTimerRunning((r) => !r); };
   const resetTimer = () => { setTimerRunning(false); endTimeRef.current = null; setTimerSeconds(timerTotal); };
-  const setPresetMins = (mins: number) => { setTimerRunning(false); endTimeRef.current = null; setTimerSeconds(mins * 60); setTimerTotal(mins * 60); localStorage.setItem('timerTotal', (mins * 60).toString()); };
+  const setPresetMins = (mins: number) => { setTimerRunning(false); endTimeRef.current = null; setTimerSeconds(mins * 60); setTimerTotal(mins * 60); storeSet('timerTotal', mins * 60); };
   const formattedTimer = `${String(Math.floor(timerSeconds / 60)).padStart(2, '0')}:${String(timerSeconds % 60).padStart(2, '0')}`;
 
   /* ==========================================================
@@ -357,7 +387,7 @@ function App() {
       const data = await res.json();
       if (data.latitude && data.longitude) {
         setLat(data.latitude); setLon(data.longitude); setLocationCity(data.city || '');
-        localStorage.setItem('lat', data.latitude.toString()); localStorage.setItem('lon', data.longitude.toString()); localStorage.setItem('locationCity', data.city || '');
+        await storeSet('lat', data.latitude); await storeSet('lon', data.longitude); await storeSet('locationCity', data.city || '');
       } else { setWeatherError('IP location unavailable'); }
     } catch { setWeatherError('IP location failed — try city search below'); }
   };
@@ -370,7 +400,7 @@ function App() {
       if (data.results && data.results[0]) {
         const r = data.results[0];
         setLat(r.latitude); setLon(r.longitude); setLocationCity(r.name);
-        localStorage.setItem('lat', r.latitude.toString()); localStorage.setItem('lon', r.longitude.toString()); localStorage.setItem('locationCity', r.name);
+        await storeSet('lat', r.latitude); await storeSet('lon', r.longitude); await storeSet('locationCity', r.name);
         setWeatherError('');
       } else { setWeatherError('City not found'); }
     } catch { setWeatherError('City search failed'); }
@@ -427,7 +457,7 @@ function App() {
     return { x: sx, y: sy, guides: { v: gv, h: gh } };
   };
 
-  const resetLayout = () => { setPositions(DEFAULT_POSITIONS); localStorage.setItem('positions', JSON.stringify(DEFAULT_POSITIONS)); };
+  const resetLayout = async () => { setPositions(DEFAULT_POSITIONS); await storeSet('positions', DEFAULT_POSITIONS); };
 
   /* ==========================================================
      PRESETS
@@ -440,46 +470,46 @@ function App() {
     theme, positions, visibility,
   });
 
-  const applyPreset = (preset: Preset) => {
+  const applyPreset = async (preset: Preset) => {
     setBackgroundType(preset.backgroundType); setYoutubeUrl(preset.youtubeUrl); setYoutubeEndTime(preset.youtubeEndTime); setImageUrl(preset.imageUrl);
     setUse24Hour(preset.use24Hour); setUseFahrenheit(preset.useFahrenheit);
     setAutoHideEnabled(preset.autoHideEnabled); setAutoHideDelay(preset.autoHideDelay);
     setLat(preset.lat); setLon(preset.lon); setLocationCity(preset.city);
     setTheme(preset.theme); setPositions(preset.positions); setVisibility(preset.visibility);
-    setActivePresetId(preset.id); saveActivePreset(preset.id);
-    localStorage.setItem('backgroundType', preset.backgroundType); localStorage.setItem('youtubeUrl', preset.youtubeUrl);
-    localStorage.setItem('youtubeEndTime', preset.youtubeEndTime?.toString() || ''); localStorage.setItem('imageUrl', preset.imageUrl);
-    localStorage.setItem('use24Hour', preset.use24Hour.toString()); localStorage.setItem('useFahrenheit', preset.useFahrenheit.toString());
-    localStorage.setItem('autoHideEnabled', preset.autoHideEnabled.toString()); localStorage.setItem('autoHideDelay', preset.autoHideDelay.toString());
-    if (preset.lat) localStorage.setItem('lat', preset.lat.toString()); if (preset.lon) localStorage.setItem('lon', preset.lon.toString());
-    localStorage.setItem('locationCity', preset.city); localStorage.setItem('theme', JSON.stringify(preset.theme));
-    localStorage.setItem('positions', JSON.stringify(preset.positions)); localStorage.setItem('visibility', JSON.stringify(preset.visibility));
+    setActivePresetId(preset.id); await saveActivePreset(preset.id);
+    await storeSet('backgroundType', preset.backgroundType); await storeSet('youtubeUrl', preset.youtubeUrl);
+    await storeSet('youtubeEndTime', preset.youtubeEndTime ?? null); await storeSet('imageUrl', preset.imageUrl);
+    await storeSet('use24Hour', preset.use24Hour); await storeSet('useFahrenheit', preset.useFahrenheit);
+    await storeSet('autoHideEnabled', preset.autoHideEnabled); await storeSet('autoHideDelay', preset.autoHideDelay);
+    if (preset.lat !== null) await storeSet('lat', preset.lat); if (preset.lon !== null) await storeSet('lon', preset.lon);
+    await storeSet('locationCity', preset.city); await storeSet('theme', preset.theme);
+    await storeSet('positions', preset.positions); await storeSet('visibility', preset.visibility);
   };
 
-  const updateActivePreset = () => {
+  const updateActivePreset = async () => {
     if (!activePresetId) return;
     const idx = presets.findIndex((p) => p.id === activePresetId);
     if (idx === -1) return;
     const updated = { ...presets[idx], backgroundType, youtubeUrl, youtubeEndTime, imageUrl, use24Hour, useFahrenheit, autoHideEnabled, autoHideDelay, lat, lon, city: locationCity, theme, positions, visibility };
     const next = [...presets]; next[idx] = updated;
-    setPresets(next); savePresets(next);
+    setPresets(next); await savePresets(next);
   };
 
-  const confirmSavePreset = () => {
+  const confirmSavePreset = async () => {
     const name = newPresetName.trim();
     if (!name) return;
     const preset = buildCurrentPreset(name);
     const next = [...presets, preset];
-    setPresets(next); savePresets(next);
-    setActivePresetId(preset.id); saveActivePreset(preset.id);
+    setPresets(next); await savePresets(next);
+    setActivePresetId(preset.id); await saveActivePreset(preset.id);
     setNewPresetName(''); setShowNewPresetInput(false);
   };
 
-  const deletePreset = (id: string, e: React.MouseEvent) => {
+  const deletePreset = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const next = presets.filter((p) => p.id !== id);
-    setPresets(next); savePresets(next);
-    if (activePresetId === id) { setActivePresetId(null); saveActivePreset(null); }
+    setPresets(next); await savePresets(next);
+    if (activePresetId === id) { setActivePresetId(null); await saveActivePreset(null); }
   };
 
   const startRename = (p: Preset, e: React.MouseEvent) => {
@@ -488,10 +518,10 @@ function App() {
     setRenameValue(p.name);
   };
 
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (!renamingPresetId || !renameValue.trim()) { setRenamingPresetId(null); return; }
     const next = presets.map((p) => p.id === renamingPresetId ? { ...p, name: renameValue.trim() } : p);
-    setPresets(next); savePresets(next);
+    setPresets(next); await savePresets(next);
     setRenamingPresetId(null);
   };
 
@@ -501,14 +531,14 @@ function App() {
     setEditPresetJson(JSON.stringify(p, null, 2));
   };
 
-  const confirmEditJson = () => {
+  const confirmEditJson = async () => {
     if (!editingPresetId) return;
     try {
       const parsed = JSON.parse(editPresetJson) as Preset;
       parsed.id = editingPresetId; // preserve ID
       const next = presets.map((p) => p.id === editingPresetId ? parsed : p);
-      setPresets(next); savePresets(next);
-      if (activePresetId === editingPresetId) applyPreset(parsed);
+      setPresets(next); await savePresets(next);
+      if (activePresetId === editingPresetId) await applyPreset(parsed);
       setEditingPresetId(null);
     } catch { alert('Invalid JSON'); }
   };
@@ -521,12 +551,12 @@ function App() {
 
   const importPresets = (file: File) => {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const imported = JSON.parse(reader.result as string) as Preset[];
         if (!Array.isArray(imported)) throw new Error('Invalid');
         const next = [...presets, ...imported.map((p) => ({ ...p, id: genId() }))];
-        setPresets(next); savePresets(next);
+        setPresets(next); await savePresets(next);
       } catch { alert('Invalid preset file'); }
     };
     reader.readAsText(file);
@@ -535,15 +565,15 @@ function App() {
   /* ==========================================================
      SAVE SETTINGS
      ========================================================== */
-  const saveSettings = () => {
-    localStorage.setItem('backgroundType', backgroundType); localStorage.setItem('youtubeUrl', youtubeUrl);
-    localStorage.setItem('youtubeEndTime', youtubeEndTime?.toString() || ''); localStorage.setItem('imageUrl', imageUrl);
-    localStorage.setItem('use24Hour', use24Hour.toString()); localStorage.setItem('useFahrenheit', useFahrenheit.toString());
-    localStorage.setItem('autoHideEnabled', autoHideEnabled.toString()); localStorage.setItem('autoHideDelay', autoHideDelay.toString());
-    localStorage.setItem('theme', JSON.stringify(theme)); localStorage.setItem('positions', JSON.stringify(positions));
-    localStorage.setItem('visibility', JSON.stringify(visibility));
-    if (lat) localStorage.setItem('lat', lat.toString()); if (lon) localStorage.setItem('lon', lon.toString());
-    localStorage.setItem('locationCity', locationCity);
+  const saveSettings = async () => {
+    await storeSet('backgroundType', backgroundType); await storeSet('youtubeUrl', youtubeUrl);
+    await storeSet('youtubeEndTime', youtubeEndTime ?? null); await storeSet('imageUrl', imageUrl);
+    await storeSet('use24Hour', use24Hour); await storeSet('useFahrenheit', useFahrenheit);
+    await storeSet('autoHideEnabled', autoHideEnabled); await storeSet('autoHideDelay', autoHideDelay);
+    await storeSet('theme', theme); await storeSet('positions', positions);
+    await storeSet('visibility', visibility);
+    if (lat !== null) await storeSet('lat', lat); if (lon !== null) await storeSet('lon', lon);
+    await storeSet('locationCity', locationCity);
     setShowSettings(false);
   };
 
@@ -868,8 +898,8 @@ function App() {
                   <div className="settings-field">
                     <label>Manual Coordinates</label>
                     <div className="coords-row">
-                      <input type="number" value={lat ?? ''} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) { setLat(v); localStorage.setItem('lat', v.toString()); } }} placeholder="Latitude" step="0.01" />
-                      <input type="number" value={lon ?? ''} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) { setLon(v); localStorage.setItem('lon', v.toString()); } }} placeholder="Longitude" step="0.01" />
+                      <input type="number" value={lat ?? ''} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) { setLat(v); storeSet('lat', v); } }} placeholder="Latitude" step="0.01" />
+                      <input type="number" value={lon ?? ''} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) { setLon(v); storeSet('lon', v); } }} placeholder="Longitude" step="0.01" />
                     </div>
                     <p className="hint">Tip: Native GPS location requires the built .app bundle. IP detection and city search work everywhere.</p>
                   </div>
