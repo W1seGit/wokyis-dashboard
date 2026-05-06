@@ -6,6 +6,7 @@ import './App.css';
    TYPES
    ============================================================ */
 
+interface Pos { x: number; y: number }
 interface Theme {
   bgDeep: string; bgPrimary: string; bgSecondary: string;
   textPrimary: string; textSecondary: string; textDim: string;
@@ -13,7 +14,10 @@ interface Theme {
   glassBg: string; glassBorder: string;
   panelBlur: number; clockSize: string; radius: number;
 }
-
+interface Visibility {
+  weather: boolean; calendar: boolean; settingsButtons: boolean;
+  clock: boolean; date: boolean; nowPlaying: boolean; timer: boolean;
+}
 interface Preset {
   id: string; name: string;
   backgroundType: 'youtube' | 'image';
@@ -22,6 +26,8 @@ interface Preset {
   autoHideEnabled: boolean; autoHideDelay: number;
   lat: number | null; lon: number | null; city: string;
   theme: Theme;
+  positions: Record<string, Pos>;
+  visibility: Visibility;
 }
 
 /* ============================================================
@@ -36,21 +42,34 @@ const DEFAULT_THEME: Theme = {
   panelBlur: 24, clockSize: 'clamp(5.5rem, 13vw, 9.5rem)', radius: 16,
 };
 
+const DEFAULT_POSITIONS: Record<string, Pos> = {
+  weather: { x: 15, y: 10 },
+  calendar: { x: 50, y: 10 },
+  settingsButtons: { x: 85, y: 10 },
+  clock: { x: 50, y: 45 },
+  date: { x: 50, y: 58 },
+  nowPlaying: { x: 15, y: 90 },
+  timer: { x: 85, y: 90 },
+};
+
+const DEFAULT_VISIBILITY: Visibility = {
+  weather: true, calendar: true, settingsButtons: true,
+  clock: true, date: true, nowPlaying: true, timer: true,
+};
+
 const PRESETS_KEY = 'wokyis_presets';
 const ACTIVE_PRESET_KEY = 'wokyis_active_preset';
 
 function loadPresets(): Preset[] {
   try { const raw = localStorage.getItem(PRESETS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
 }
-function savePresets(presets: Preset[]) { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }
+function savePresets(p: Preset[]) { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); }
 function loadActivePreset(): string | null { return localStorage.getItem(ACTIVE_PRESET_KEY); }
 function saveActivePreset(id: string | null) { if (id) localStorage.setItem(ACTIVE_PRESET_KEY, id); else localStorage.removeItem(ACTIVE_PRESET_KEY); }
-function generateId() { return Math.random().toString(36).slice(2, 10); }
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function genId() { return Math.random().toString(36).slice(2, 10); }
+function hexToRgba(hex: string, a: number): string {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 /* ============================================================
@@ -60,7 +79,6 @@ function hexToRgba(hex: string, alpha: number): string {
 const Ico = ({ d, w = 20 }: { d: string; w?: number }) => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
 );
-
 const IconSettings   = () => <Ico d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />;
 const IconFocus      = () => <Ico d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />;
 const IconFocusOff   = () => <Ico d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />;
@@ -82,6 +100,14 @@ const IconBg         = () => <Ico d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-
 const IconWeatherIco = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />;
 const IconPresets    = () => <Ico d="M19 11H5m14 0a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m14 0V9a2 2 0 0 0-2-2M5 11V9a2 2 0 0 1 2-2m0 0V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M7 7h10" />;
 const IconPalette    = () => <Ico d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />;
+const IconLayout     = () => <Ico d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />;
+const IconMove       = () => <Ico d="M5 9l4-4 4 4M9 5v14" />;
+const IconEye        = () => <Ico d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />;
+const IconEyeOff     = () => <Ico d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />;
+const IconPencil     = () => <Ico d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />;
+const IconCheck      = () => <Ico d="M20 6L9 17l-5-5" />;
+const IconX          = () => <Ico d="M18 6L6 18M6 6l12 12" />;
+const IconGlobe      = () => <Ico d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 0 1 0-16 8 8 0 0 1 0 16zM2 12h20" />;
 const IconSun        = () => <Ico d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />;
 const IconCloudSun   = () => <Ico d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9zM12 2v2m0 6v2m-7-5 1.5 1.5m12.5-1.5L19 5" />;
 const IconCloud      = () => <Ico d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" />;
@@ -98,6 +124,7 @@ const IconYoutube    = () => <Ico d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 
    ============================================================ */
 
 function App() {
+  /* --- time --- */
   const [time, setTime] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
 
@@ -106,6 +133,10 @@ function App() {
   const [activePresetId, setActivePresetId] = useState<string | null>(loadActivePreset);
   const [newPresetName, setNewPresetName] = useState('');
   const [showNewPresetInput, setShowNewPresetInput] = useState(false);
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editPresetJson, setEditPresetJson] = useState('');
+  const [renamingPresetId, setRenamingPresetId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   /* --- background --- */
   const [backgroundType, setBackgroundType] = useState<'youtube' | 'image'>('youtube');
@@ -123,6 +154,14 @@ function App() {
   const [uiHidden, setUiHidden] = useState(false);
   const autoHideTimerRef = useRef<number | null>(null);
 
+  /* --- layout editor --- */
+  const [editLayoutMode, setEditLayoutMode] = useState(false);
+  const [positions, setPositions] = useState<Record<string, Pos>>(DEFAULT_POSITIONS);
+  const [visibility, setVisibility] = useState<Visibility>(DEFAULT_VISIBILITY);
+  const draggingRef = useRef<{ key: string; startX: number; startY: number; startPos: Pos } | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [snapGuides, setSnapGuides] = useState<{ v: number | null; h: number | null }>({ v: null, h: null });
+
   /* --- weather --- */
   const [weather, setWeather] = useState<{ tempC: number; description: string; code: number } | null>(null);
   const [weatherError, setWeatherError] = useState('');
@@ -130,7 +169,6 @@ function App() {
   const [lon, setLon] = useState<number | null>(null);
   const [locationCity, setLocationCity] = useState('');
   const [manualCity, setManualCity] = useState('');
-  const [locationRequested, setLocationRequested] = useState(false);
 
   /* --- now playing / calendar --- */
   const [nowPlaying, setNowPlaying] = useState('');
@@ -147,9 +185,9 @@ function App() {
   /* --- focus --- */
   const [focusMode, setFocusMode] = useState(false);
 
-  /* --- settings modal --- */
+  /* --- settings --- */
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'background' | 'weather' | 'presets' | 'theme'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'background' | 'weather' | 'presets' | 'theme' | 'layout'>('general');
   const [settingsSearch, setSettingsSearch] = useState('');
 
   /* --- theme --- */
@@ -170,6 +208,8 @@ function App() {
     setLat((() => { const v = localStorage.getItem('lat'); return v ? parseFloat(v) : null; })());
     setLon((() => { const v = localStorage.getItem('lon'); return v ? parseFloat(v) : null; })());
     setLocationCity(localStorage.getItem('locationCity') || '');
+    const posRaw = localStorage.getItem('positions'); if (posRaw) { try { setPositions(JSON.parse(posRaw)); } catch {} }
+    const visRaw = localStorage.getItem('visibility'); if (visRaw) { try { setVisibility(JSON.parse(visRaw)); } catch {} }
     const ts = localStorage.getItem('timerSeconds'); const tt = localStorage.getItem('timerTotal');
     if (ts) setTimerSeconds(parseInt(ts)); if (tt) setTimerTotal(parseInt(tt));
     const savedTheme = localStorage.getItem('theme'); if (savedTheme) { try { setTheme(JSON.parse(savedTheme)); } catch {} }
@@ -235,18 +275,18 @@ function App() {
   const resetAutoHide = useCallback(() => {
     setUiHidden(false);
     if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-    if (autoHideEnabled && !showSettings) {
+    if (autoHideEnabled && !showSettings && !editLayoutMode) {
       autoHideTimerRef.current = window.setTimeout(() => setUiHidden(true), autoHideDelay * 1000);
     }
-  }, [autoHideEnabled, autoHideDelay, showSettings]);
+  }, [autoHideEnabled, autoHideDelay, showSettings, editLayoutMode]);
 
   useEffect(() => {
-    if (!autoHideEnabled || showSettings) { setUiHidden(false); if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); return; }
+    if (!autoHideEnabled || showSettings || editLayoutMode) { setUiHidden(false); if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); return; }
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel'];
     events.forEach(e => window.addEventListener(e, resetAutoHide));
     resetAutoHide();
     return () => { events.forEach(e => window.removeEventListener(e, resetAutoHide)); if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current); };
-  }, [resetAutoHide, autoHideEnabled, showSettings]);
+  }, [resetAutoHide, autoHideEnabled, showSettings, editLayoutMode]);
 
   /* ==========================================================
      NOW PLAYING
@@ -293,13 +333,7 @@ function App() {
       const data = await res.json();
       if (data.current_weather) {
         const code = data.current_weather.weathercode;
-        const desc: Record<number, string> = {
-          0: 'Clear', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
-          45: 'Fog', 48: 'Rime Fog', 51: 'Light Drizzle', 53: 'Moderate Drizzle',
-          55: 'Dense Drizzle', 61: 'Slight Rain', 63: 'Moderate Rain', 65: 'Heavy Rain',
-          71: 'Slight Snow', 73: 'Moderate Snow', 75: 'Heavy Snow', 80: 'Slight Showers',
-          81: 'Moderate Showers', 82: 'Violent Showers', 95: 'Thunderstorm', 96: 'Hail', 99: 'Hail',
-        };
+        const desc: Record<number, string> = { 0: 'Clear', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Rime Fog', 51: 'Light Drizzle', 53: 'Moderate Drizzle', 55: 'Dense Drizzle', 61: 'Slight Rain', 63: 'Moderate Rain', 65: 'Heavy Rain', 71: 'Slight Snow', 73: 'Moderate Snow', 75: 'Heavy Snow', 80: 'Slight Showers', 81: 'Moderate Showers', 82: 'Violent Showers', 95: 'Thunderstorm', 96: 'Hail', 99: 'Hail' };
         const temp = data.current_weather.temperature;
         setWeather({ tempC: useFahrenheit ? Math.round((temp - 32) * 5 / 9) : temp, description: desc[code] || 'Unknown', code });
       }
@@ -314,25 +348,18 @@ function App() {
   }, [lat, lon, fetchWeather]);
 
   /* ==========================================================
-     LOCATION
+     LOCATION (IP-based primary)
      ========================================================== */
-  const requestLocation = () => {
-    setLocationRequested(true); setWeatherError('');
-    if (!('geolocation' in navigator)) { setWeatherError('Geolocation not available'); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setLat(pos.coords.latitude); setLon(pos.coords.longitude); localStorage.setItem('lat', pos.coords.latitude.toString()); localStorage.setItem('lon', pos.coords.longitude.toString()); fetchCityName(pos.coords.latitude, pos.coords.longitude); },
-      (err) => { if (err.code === 1) setWeatherError('location_denied'); else if (err.code === 2) setWeatherError('Location unavailable'); else setWeatherError('Location request timed out'); },
-      { enableHighAccuracy: false, timeout: 15000 }
-    );
-  };
-
-  const fetchCityName = async (latitude: number, longitude: number) => {
+  const detectLocationByIP = async () => {
+    setWeatherError('');
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
+      const res = await fetch('https://ipapi.co/json/');
       const data = await res.json();
-      const name = data?.address?.city || data?.address?.town || data?.address?.village || data?.address?.state || '';
-      setLocationCity(name); localStorage.setItem('locationCity', name);
-    } catch { setLocationCity(''); }
+      if (data.latitude && data.longitude) {
+        setLat(data.latitude); setLon(data.longitude); setLocationCity(data.city || '');
+        localStorage.setItem('lat', data.latitude.toString()); localStorage.setItem('lon', data.longitude.toString()); localStorage.setItem('locationCity', data.city || '');
+      } else { setWeatherError('IP location unavailable'); }
+    } catch { setWeatherError('IP location failed — try city search below'); }
   };
 
   const searchCity = async () => {
@@ -349,27 +376,68 @@ function App() {
     } catch { setWeatherError('City search failed'); }
   };
 
-  useEffect(() => {
-    if (lat !== null || lon !== null) return;
-    if (!('geolocation' in navigator)) return;
-    const id = setTimeout(() => {
-      if (lat === null && lon === null && !locationRequested) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => { setLat(pos.coords.latitude); setLon(pos.coords.longitude); localStorage.setItem('lat', pos.coords.latitude.toString()); localStorage.setItem('lon', pos.coords.longitude.toString()); fetchCityName(pos.coords.latitude, pos.coords.longitude); },
-          () => {}, { enableHighAccuracy: false, timeout: 5000 }
-        );
-      }
-    }, 500);
-    return () => clearTimeout(id);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  /* ==========================================================
+     DRAGGABLE LAYOUT
+     ========================================================== */
+  const startDrag = (e: React.MouseEvent, key: string) => {
+    if (!editLayoutMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const container = contentRef.current!;
+    const rect = container.getBoundingClientRect();
+    const startPos = positions[key];
+    const startMX = (e.clientX - rect.left) / rect.width * 100;
+    const startMY = (e.clientY - rect.top) / rect.height * 100;
+    draggingRef.current = { key, startX: startMX, startY: startMY, startPos };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const mx = (ev.clientX - rect.left) / rect.width * 100;
+      const my = (ev.clientY - rect.top) / rect.height * 100;
+      const dx = mx - draggingRef.current.startX;
+      const dy = my - draggingRef.current.startY;
+      const rawX = draggingRef.current.startPos.x + dx;
+      const rawY = draggingRef.current.startPos.y + dy;
+      const snapped = snapPosition(rawX, rawY);
+      setSnapGuides(snapped.guides);
+      setPositions((prev) => ({ ...prev, [key]: { x: snapped.x, y: snapped.y } }));
+    };
+
+    const onUp = () => {
+      draggingRef.current = null;
+      setSnapGuides({ v: null, h: null });
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const snapPosition = (x: number, y: number): { x: number; y: number; guides: { v: number | null; h: number | null } } => {
+    const threshold = 2;
+    let sx = Math.max(5, Math.min(95, x));
+    let sy = Math.max(5, Math.min(95, y));
+    let gv: number | null = null;
+    let gh: number | null = null;
+    [10, 25, 50, 75, 90].forEach((g) => {
+      if (Math.abs(sx - g) < threshold) { sx = g; gv = g; }
+      if (Math.abs(sy - g) < threshold) { sy = g; gh = g; }
+    });
+    return { x: sx, y: sy, guides: { v: gv, h: gh } };
+  };
+
+  const resetLayout = () => { setPositions(DEFAULT_POSITIONS); localStorage.setItem('positions', JSON.stringify(DEFAULT_POSITIONS)); };
 
   /* ==========================================================
      PRESETS
      ========================================================== */
   const buildCurrentPreset = (name: string): Preset => ({
-    id: generateId(), name, backgroundType, youtubeUrl, youtubeEndTime, imageUrl,
+    id: genId(), name,
+    backgroundType, youtubeUrl, youtubeEndTime, imageUrl,
     use24Hour, useFahrenheit, autoHideEnabled, autoHideDelay,
-    lat, lon, city: locationCity, theme,
+    lat, lon, city: locationCity,
+    theme, positions, visibility,
   });
 
   const applyPreset = (preset: Preset) => {
@@ -377,13 +445,24 @@ function App() {
     setUse24Hour(preset.use24Hour); setUseFahrenheit(preset.useFahrenheit);
     setAutoHideEnabled(preset.autoHideEnabled); setAutoHideDelay(preset.autoHideDelay);
     setLat(preset.lat); setLon(preset.lon); setLocationCity(preset.city);
-    setTheme(preset.theme); setActivePresetId(preset.id); saveActivePreset(preset.id);
+    setTheme(preset.theme); setPositions(preset.positions); setVisibility(preset.visibility);
+    setActivePresetId(preset.id); saveActivePreset(preset.id);
     localStorage.setItem('backgroundType', preset.backgroundType); localStorage.setItem('youtubeUrl', preset.youtubeUrl);
     localStorage.setItem('youtubeEndTime', preset.youtubeEndTime?.toString() || ''); localStorage.setItem('imageUrl', preset.imageUrl);
     localStorage.setItem('use24Hour', preset.use24Hour.toString()); localStorage.setItem('useFahrenheit', preset.useFahrenheit.toString());
     localStorage.setItem('autoHideEnabled', preset.autoHideEnabled.toString()); localStorage.setItem('autoHideDelay', preset.autoHideDelay.toString());
     if (preset.lat) localStorage.setItem('lat', preset.lat.toString()); if (preset.lon) localStorage.setItem('lon', preset.lon.toString());
     localStorage.setItem('locationCity', preset.city); localStorage.setItem('theme', JSON.stringify(preset.theme));
+    localStorage.setItem('positions', JSON.stringify(preset.positions)); localStorage.setItem('visibility', JSON.stringify(preset.visibility));
+  };
+
+  const updateActivePreset = () => {
+    if (!activePresetId) return;
+    const idx = presets.findIndex((p) => p.id === activePresetId);
+    if (idx === -1) return;
+    const updated = { ...presets[idx], backgroundType, youtubeUrl, youtubeEndTime, imageUrl, use24Hour, useFahrenheit, autoHideEnabled, autoHideDelay, lat, lon, city: locationCity, theme, positions, visibility };
+    const next = [...presets]; next[idx] = updated;
+    setPresets(next); savePresets(next);
   };
 
   const confirmSavePreset = () => {
@@ -403,6 +482,37 @@ function App() {
     if (activePresetId === id) { setActivePresetId(null); saveActivePreset(null); }
   };
 
+  const startRename = (p: Preset, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRenamingPresetId(p.id);
+    setRenameValue(p.name);
+  };
+
+  const confirmRename = () => {
+    if (!renamingPresetId || !renameValue.trim()) { setRenamingPresetId(null); return; }
+    const next = presets.map((p) => p.id === renamingPresetId ? { ...p, name: renameValue.trim() } : p);
+    setPresets(next); savePresets(next);
+    setRenamingPresetId(null);
+  };
+
+  const startEditJson = (p: Preset, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingPresetId(p.id);
+    setEditPresetJson(JSON.stringify(p, null, 2));
+  };
+
+  const confirmEditJson = () => {
+    if (!editingPresetId) return;
+    try {
+      const parsed = JSON.parse(editPresetJson) as Preset;
+      parsed.id = editingPresetId; // preserve ID
+      const next = presets.map((p) => p.id === editingPresetId ? parsed : p);
+      setPresets(next); savePresets(next);
+      if (activePresetId === editingPresetId) applyPreset(parsed);
+      setEditingPresetId(null);
+    } catch { alert('Invalid JSON'); }
+  };
+
   const exportPresets = () => {
     const blob = new Blob([JSON.stringify(presets, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -415,7 +525,7 @@ function App() {
       try {
         const imported = JSON.parse(reader.result as string) as Preset[];
         if (!Array.isArray(imported)) throw new Error('Invalid');
-        const next = [...presets, ...imported.map((p) => ({ ...p, id: generateId() }))];
+        const next = [...presets, ...imported.map((p) => ({ ...p, id: genId() }))];
         setPresets(next); savePresets(next);
       } catch { alert('Invalid preset file'); }
     };
@@ -423,14 +533,15 @@ function App() {
   };
 
   /* ==========================================================
-     SAVE
+     SAVE SETTINGS
      ========================================================== */
   const saveSettings = () => {
     localStorage.setItem('backgroundType', backgroundType); localStorage.setItem('youtubeUrl', youtubeUrl);
     localStorage.setItem('youtubeEndTime', youtubeEndTime?.toString() || ''); localStorage.setItem('imageUrl', imageUrl);
     localStorage.setItem('use24Hour', use24Hour.toString()); localStorage.setItem('useFahrenheit', useFahrenheit.toString());
     localStorage.setItem('autoHideEnabled', autoHideEnabled.toString()); localStorage.setItem('autoHideDelay', autoHideDelay.toString());
-    localStorage.setItem('theme', JSON.stringify(theme));
+    localStorage.setItem('theme', JSON.stringify(theme)); localStorage.setItem('positions', JSON.stringify(positions));
+    localStorage.setItem('visibility', JSON.stringify(visibility));
     if (lat) localStorage.setItem('lat', lat.toString()); if (lon) localStorage.setItem('lon', lon.toString());
     localStorage.setItem('locationCity', locationCity);
     setShowSettings(false);
@@ -444,10 +555,11 @@ function App() {
   const toggleFocusMode = () => setFocusMode((f) => !f);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowSettings(false);
+      if (e.key === 'Escape') { setShowSettings(false); setEditLayoutMode(false); }
       if (e.metaKey || e.ctrlKey) {
         if (e.key === ',') { e.preventDefault(); setShowSettings((s) => !s); }
         if (e.key === 'f') { e.preventDefault(); toggleFocusMode(); }
+        if (e.key === 'e') { e.preventDefault(); setEditLayoutMode((m) => !m); }
       }
     };
     window.addEventListener('keydown', handler);
@@ -470,20 +582,40 @@ function App() {
   };
 
   /* ==========================================================
-     SETTINGS SIDEBAR HELPERS
+     SETTINGS TABS
      ========================================================== */
-  const tabs: { id: 'general' | 'background' | 'weather' | 'presets' | 'theme'; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: 'general' | 'background' | 'weather' | 'presets' | 'theme' | 'layout'; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <IconGeneral /> },
     { id: 'background', label: 'Background', icon: <IconBg /> },
     { id: 'weather', label: 'Weather', icon: <IconWeatherIco /> },
+    { id: 'layout', label: 'Layout', icon: <IconLayout /> },
     { id: 'presets', label: 'Presets', icon: <IconPresets /> },
     { id: 'theme', label: 'Theme', icon: <IconPalette /> },
   ];
+  const visibleTabs = settingsSearch ? tabs.filter((t) => t.label.toLowerCase().includes(settingsSearch.toLowerCase())) : tabs;
 
-  const searchLower = settingsSearch.toLowerCase();
-  const visibleTabs = searchLower
-    ? tabs.filter((t) => t.label.toLowerCase().includes(searchLower))
-    : tabs;
+  /* ==========================================================
+     RENDER WIDGET WRAPPER
+     ========================================================== */
+  const Widget = ({ widgetKey, children, className = '' }: { widgetKey: string; children: React.ReactNode; className?: string }) => {
+    const pos = positions[widgetKey] || DEFAULT_POSITIONS[widgetKey];
+    const vis = visibility[widgetKey as keyof Visibility];
+    if (!vis) return null;
+    return (
+      <div
+        className={`widget-wrapper ${editLayoutMode ? 'edit-mode' : ''} ${uiHidden && widgetKey !== 'clock' && widgetKey !== 'date' && widgetKey !== 'weather' ? 'ui-hideable' : ''} ${className}`}
+        style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+        onMouseDown={(e) => startDrag(e, widgetKey)}
+      >
+        {editLayoutMode && (
+          <div className="widget-drag-handle" title="Drag to move">
+            <IconMove />
+          </div>
+        )}
+        {children}
+      </div>
+    );
+  };
 
   /* ==========================================================
      RENDER
@@ -505,67 +637,75 @@ function App() {
       )}
       {((backgroundType === 'youtube' && !youtubeSrc) || (backgroundType === 'image' && !imageUrl)) && <div className="bg-gradient" />}
 
-      <div className="content">
-        {/* Top Bar */}
-        <div className="top-bar">
-          <div className="top-left">
-            {weather && displayTemp ? (
-              <div className="glass-panel weather-widget ui-hideable">
-                <div className="weather-main">
-                  <span className="weather-icon"><WeatherIcon code={weather.code} /></span>
-                  <span className="weather-temp">{displayTemp.value}{displayTemp.unit}</span>
-                  <span className="weather-desc">{weather.description}</span>
+      {/* Snap Guides */}
+      {editLayoutMode && (
+        <>
+          {snapGuides.v !== null && <div className="snap-guide vertical" style={{ left: `${snapGuides.v}%` }} />}
+          {snapGuides.h !== null && <div className="snap-guide horizontal" style={{ top: `${snapGuides.h}%` }} />}
+        </>
+      )}
+
+      {/* Main Content */}
+      <div className="content" ref={contentRef}>
+        {/* Weather */}
+        <Widget widgetKey="weather">
+          {weather && displayTemp ? (
+            <div className="glass-panel weather-widget">
+              <div className="weather-main">
+                <span className="weather-icon"><WeatherIcon code={weather.code} /></span>
+                <span className="weather-temp">{displayTemp.value}{displayTemp.unit}</span>
+                <span className="weather-desc">{weather.description}</span>
+              </div>
+              {locationCity && (
+                <div className="location-indicator">
+                  <IconLocation />
+                  <span className="location-name">{locationCity}</span>
                 </div>
-                {locationCity && (
-                  <div className="location-indicator">
-                    <IconLocation />
-                    <span className="location-name">{locationCity}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="location-prompt ui-hideable">
-                {weatherError === 'location_denied' ? (
-                  <div className="location-denied-block">
-                    <span className="location-error">Location access denied</span>
-                    <button className="location-settings-btn" onClick={openLocationSettings}>
-                      <IconLock /> Open Location Settings
-                    </button>
-                  </div>
-                ) : locationRequested && weatherError ? (
-                  <span className="location-error-text">{weatherError}</span>
-                ) : lat === null ? (
-                  <button className="glass-btn location-btn" onClick={requestLocation}>
-                    <IconLocation /> Enable Location
+              )}
+            </div>
+          ) : (
+            <div className="location-prompt">
+              {weatherError ? (
+                <div className="location-denied-block">
+                  <span className="location-error">{weatherError}</span>
+                  <button className="location-settings-btn" onClick={openLocationSettings}>
+                    <IconLock /> Open Location Settings
                   </button>
-                ) : (
-                  <span className="dim-text">Loading weather...</span>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              ) : (
+                <span className="dim-text">Loading weather...</span>
+              )}
+            </div>
+          )}
+        </Widget>
 
-          <div className="top-center">
-            {calendarEvent && !focusMode && (
-              <div className="glass-panel calendar-widget ui-hideable">
-                <IconCalendar />
-                <span className="calendar-text">{calendarEvent}</span>
-              </div>
-            )}
-          </div>
+        {/* Calendar */}
+        <Widget widgetKey="calendar">
+          {calendarEvent && !focusMode && (
+            <div className="glass-panel calendar-widget">
+              <IconCalendar />
+              <span className="calendar-text">{calendarEvent}</span>
+            </div>
+          )}
+        </Widget>
 
-          <div className="top-right ui-hideable">
+        {/* Settings Buttons */}
+        <Widget widgetKey="settingsButtons">
+          <div className="settings-buttons-row">
             <button className="glass-icon-btn" onClick={toggleFocusMode} title="Toggle Focus Mode (⌘F)">
               {focusMode ? <IconFocusOff /> : <IconFocus />}
+            </button>
+            <button className="glass-icon-btn" onClick={() => setEditLayoutMode((m) => !m)} title="Toggle Layout Editor (⌘E)">
+              {editLayoutMode ? <IconCheck /> : <IconLayout />}
             </button>
             <button className="glass-icon-btn" onClick={() => setShowSettings((s) => !s)} title="Settings (⌘,)">
               <IconSettings />
             </button>
           </div>
-        </div>
+        </Widget>
 
         {/* Clock */}
-        <div className="clock-area">
+        <Widget widgetKey="clock">
           <div className="clock">
             <span className="clock-hours">{formattedTime.hours}</span>
             <span className="clock-sep">:</span>
@@ -574,21 +714,26 @@ function App() {
             <span className="clock-seconds">{formattedTime.seconds}</span>
             {!use24Hour && <span className="clock-ampm">{formattedTime.ampm}</span>}
           </div>
+        </Widget>
+
+        {/* Date */}
+        <Widget widgetKey="date">
           <div className="date-text">{formattedDate}</div>
-        </div>
+        </Widget>
 
-        {/* Bottom Bar */}
-        <div className="bottom-bar">
-          <div className="bottom-left">
-            {nowPlaying && !focusMode && (
-              <div className="glass-panel now-playing-widget ui-hideable">
-                <IconMusic />
-                <span className="np-text">{nowPlaying}</span>
-              </div>
-            )}
-          </div>
+        {/* Now Playing */}
+        <Widget widgetKey="nowPlaying">
+          {nowPlaying && !focusMode && (
+            <div className="glass-panel now-playing-widget">
+              <IconMusic />
+              <span className="np-text">{nowPlaying}</span>
+            </div>
+          )}
+        </Widget>
 
-          <div className="bottom-right ui-hideable">
+        {/* Timer */}
+        <Widget widgetKey="timer">
+          <div className="timer-wrapper">
             {showTimer && (
               <div className="glass-panel timer-widget">
                 <div className="timer-presets">
@@ -608,7 +753,7 @@ function App() {
               <IconTimer />
             </button>
           </div>
-        </div>
+        </Widget>
       </div>
 
       {/* Settings Modal with Sidebar */}
@@ -619,20 +764,11 @@ function App() {
             <div className="settings-sidebar">
               <div className="settings-search">
                 <IconSearch />
-                <input
-                  type="text"
-                  placeholder="Search settings..."
-                  value={settingsSearch}
-                  onChange={(e) => setSettingsSearch(e.target.value)}
-                />
+                <input type="text" placeholder="Search..." value={settingsSearch} onChange={(e) => setSettingsSearch(e.target.value)} />
               </div>
               <nav className="settings-nav">
                 {visibleTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    className={`settings-nav-item ${settingsTab === tab.id ? 'active' : ''}`}
-                    onClick={() => { setSettingsTab(tab.id); setSettingsSearch(''); }}
-                  >
+                  <button key={tab.id} className={`settings-nav-item ${settingsTab === tab.id ? 'active' : ''}`} onClick={() => { setSettingsTab(tab.id); setSettingsSearch(''); }}>
                     {tab.icon}
                     <span>{tab.label}</span>
                   </button>
@@ -646,7 +782,6 @@ function App() {
               {settingsTab === 'general' && (
                 <div className="settings-section">
                   <h3>General</h3>
-
                   <div className="settings-field">
                     <label>Clock Format</label>
                     <div className="toggle-row">
@@ -654,15 +789,6 @@ function App() {
                       <button className={`toggle-btn ${!use24Hour ? 'active' : ''}`} onClick={() => setUse24Hour(false)}>12-Hour AM/PM</button>
                     </div>
                   </div>
-
-                  <div className="settings-field">
-                    <label>Temperature Unit</label>
-                    <div className="toggle-row">
-                      <button className={`toggle-btn ${!useFahrenheit ? 'active' : ''}`} onClick={() => setUseFahrenheit(false)}>Celsius °C</button>
-                      <button className={`toggle-btn ${useFahrenheit ? 'active' : ''}`} onClick={() => setUseFahrenheit(true)}>Fahrenheit °F</button>
-                    </div>
-                  </div>
-
                   <div className="settings-field">
                     <label>Auto-Hide UI</label>
                     <div className="toggle-row">
@@ -676,7 +802,7 @@ function App() {
                         <span className="slider-value">{autoHideDelay}s</span>
                       </div>
                     )}
-                    <p className="hint">UI elements fade out after inactivity. Move mouse to reveal.</p>
+                    <p className="hint">Clock and date are always visible. Other elements fade out after inactivity.</p>
                   </div>
                 </div>
               )}
@@ -685,7 +811,6 @@ function App() {
               {settingsTab === 'background' && (
                 <div className="settings-section">
                   <h3>Background</h3>
-
                   <div className="settings-field">
                     <label>Source</label>
                     <div className="toggle-row">
@@ -693,7 +818,6 @@ function App() {
                       <button className={`toggle-btn ${backgroundType === 'image' ? 'active' : ''}`} onClick={() => setBackgroundType('image')}><IconImage /> Image</button>
                     </div>
                   </div>
-
                   {backgroundType === 'youtube' && (
                     <>
                       <div className="settings-field">
@@ -707,7 +831,6 @@ function App() {
                       </div>
                     </>
                   )}
-
                   {backgroundType === 'image' && (
                     <div className="settings-field">
                       <label>Image URL</label>
@@ -721,8 +844,19 @@ function App() {
               {/* WEATHER */}
               {settingsTab === 'weather' && (
                 <div className="settings-section">
-                  <h3>Weather Location</h3>
-
+                  <h3>Weather</h3>
+                  <div className="settings-field">
+                    <label>Temperature Unit</label>
+                    <div className="toggle-row">
+                      <button className={`toggle-btn ${!useFahrenheit ? 'active' : ''}`} onClick={() => setUseFahrenheit(false)}>Celsius °C</button>
+                      <button className={`toggle-btn ${useFahrenheit ? 'active' : ''}`} onClick={() => setUseFahrenheit(true)}>Fahrenheit °F</button>
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <label>Detect Location</label>
+                    <button className="location-detect-btn" onClick={detectLocationByIP}><IconGlobe /> Detect by IP</button>
+                    <p className="hint">Uses your IP address to estimate location. No permission required.</p>
+                  </div>
                   <div className="settings-field">
                     <label>Search City</label>
                     <div className="city-search-row">
@@ -731,18 +865,44 @@ function App() {
                     </div>
                     {locationCity && <p className="hint">Current: <strong>{locationCity}</strong></p>}
                   </div>
-
-                  <div className="settings-field">
-                    <label>Detect Automatically</label>
-                    <button className="location-detect-btn" onClick={requestLocation}><IconLocation /> Detect My Location</button>
-                    <p className="hint">Requires Location Services permission. If the app doesn't appear in System Settings, build and run the .app bundle.</p>
-                  </div>
-
                   <div className="settings-field">
                     <label>Manual Coordinates</label>
                     <div className="coords-row">
                       <input type="number" value={lat ?? ''} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) { setLat(v); localStorage.setItem('lat', v.toString()); } }} placeholder="Latitude" step="0.01" />
                       <input type="number" value={lon ?? ''} onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) { setLon(v); localStorage.setItem('lon', v.toString()); } }} placeholder="Longitude" step="0.01" />
+                    </div>
+                    <p className="hint">Tip: Native GPS location requires the built .app bundle. IP detection and city search work everywhere.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* LAYOUT */}
+              {settingsTab === 'layout' && (
+                <div className="settings-section">
+                  <h3>Layout Editor</h3>
+                  <div className="settings-field">
+                    <label>Mode</label>
+                    <div className="toggle-row">
+                      <button className={`toggle-btn ${!editLayoutMode ? 'active' : ''}`} onClick={() => setEditLayoutMode(false)}>View</button>
+                      <button className={`toggle-btn ${editLayoutMode ? 'active' : ''}`} onClick={() => setEditLayoutMode(true)}>Edit</button>
+                    </div>
+                    <p className="hint">In Edit mode, drag elements anywhere on screen. They snap to grid lines. Press ⌘E to toggle.</p>
+                  </div>
+                  <div className="settings-field">
+                    <label>Element Visibility</label>
+                    <div className="visibility-grid">
+                      {(Object.keys(visibility) as Array<keyof Visibility>).map((key) => (
+                        <button key={key} className={`visibility-chip ${visibility[key] ? 'active' : ''}`} onClick={() => setVisibility((v) => ({ ...v, [key]: !v[key] }))}>
+                          {visibility[key] ? <IconEye /> : <IconEyeOff />}
+                          <span>{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <label>Actions</label>
+                    <div className="preset-actions">
+                      <button className="icon-text-btn" onClick={resetLayout}><IconReset /> Reset Layout</button>
                     </div>
                   </div>
                 </div>
@@ -752,23 +912,53 @@ function App() {
               {settingsTab === 'presets' && (
                 <div className="settings-section">
                   <h3>Presets</h3>
-
+                  {activePresetId && (
+                    <div className="settings-field">
+                      <label>Active Preset</label>
+                      <div className="active-preset-bar">
+                        <span className="active-preset-name">{presets.find((p) => p.id === activePresetId)?.name || 'None'}</span>
+                        <button className="btn-primary small" onClick={updateActivePreset}><IconCheck /> Save to Preset</button>
+                      </div>
+                      <p className="hint">Click "Save to Preset" to overwrite the active preset with current settings.</p>
+                    </div>
+                  )}
                   <div className="settings-field">
                     <label>Saved Presets</label>
                     <div className="preset-list">
                       {presets.map((p) => (
-                        <button key={p.id} className={`preset-chip ${activePresetId === p.id ? 'active' : ''}`} onClick={() => applyPreset(p)}>
-                          {p.name}
-                          <span className="preset-delete" onClick={(e) => deletePreset(p.id, e)}><IconTrash /></span>
-                        </button>
+                        <div key={p.id} className={`preset-card ${activePresetId === p.id ? 'active' : ''}`}>
+                          {renamingPresetId === p.id ? (
+                            <div className="preset-rename-row">
+                              <input type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmRename()} autoFocus />
+                              <button className="btn-primary small" onClick={confirmRename}><IconCheck /></button>
+                              <button className="btn-secondary small" onClick={() => setRenamingPresetId(null)}><IconX /></button>
+                            </div>
+                          ) : editingPresetId === p.id ? (
+                            <div className="preset-edit-json">
+                              <textarea value={editPresetJson} onChange={(e) => setEditPresetJson(e.target.value)} rows={6} />
+                              <div className="preset-actions">
+                                <button className="btn-primary small" onClick={confirmEditJson}><IconCheck /> Save JSON</button>
+                                <button className="btn-secondary small" onClick={() => setEditingPresetId(null)}><IconX /> Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <button className="preset-card-name" onClick={() => applyPreset(p)}>{p.name}</button>
+                              <div className="preset-card-actions">
+                                <button className="preset-card-btn" onClick={(e) => startRename(p, e)} title="Rename"><IconPencil /></button>
+                                <button className="preset-card-btn" onClick={(e) => startEditJson(p, e)} title="Edit JSON"><IconSettings /></button>
+                                <button className="preset-card-btn delete" onClick={(e) => deletePreset(p.id, e)} title="Delete"><IconTrash /></button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
-
                   <div className="settings-field">
-                    <label>Save Current as Preset</label>
+                    <label>New Preset</label>
                     {!showNewPresetInput ? (
-                      <button className="preset-chip add" onClick={() => setShowNewPresetInput(true)}><IconPlus /> New Preset</button>
+                      <button className="preset-chip add" onClick={() => setShowNewPresetInput(true)}><IconPlus /> Save Current as Preset</button>
                     ) : (
                       <div className="new-preset-row">
                         <input type="text" value={newPresetName} onChange={(e) => setNewPresetName(e.target.value)} placeholder="Preset name..." onKeyDown={(e) => e.key === 'Enter' && confirmSavePreset()} autoFocus />
@@ -777,7 +967,6 @@ function App() {
                       </div>
                     )}
                   </div>
-
                   <div className="settings-field">
                     <label>Transfer</label>
                     <div className="preset-actions">
@@ -795,55 +984,27 @@ function App() {
               {settingsTab === 'theme' && (
                 <div className="settings-section">
                   <h3>Theme</h3>
-
                   <div className="settings-field">
                     <label>Colors</label>
                     <div className="theme-grid">
-                      <div className="theme-item">
-                        <span>Background</span>
-                        <input type="color" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} />
-                      </div>
-                      <div className="theme-item">
-                        <span>Accent</span>
-                        <input type="color" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value, accentHover: e.target.value }))} />
-                      </div>
-                      <div className="theme-item">
-                        <span>Text</span>
-                        <input type="color" value={theme.textPrimary} onChange={(e) => setTheme((t) => ({ ...t, textPrimary: e.target.value }))} />
-                      </div>
-                      <div className="theme-item">
-                        <span>Glass</span>
-                        <input type="color" value={theme.bgPrimary} onChange={(e) => setTheme((t) => ({ ...t, bgPrimary: e.target.value, glassBg: hexToRgba(e.target.value, 0.45) }))} />
-                      </div>
+                      <div className="theme-item"><span>Background</span><input type="color" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} /></div>
+                      <div className="theme-item"><span>Accent</span><input type="color" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value, accentHover: e.target.value }))} /></div>
+                      <div className="theme-item"><span>Text</span><input type="color" value={theme.textPrimary} onChange={(e) => setTheme((t) => ({ ...t, textPrimary: e.target.value }))} /></div>
+                      <div className="theme-item"><span>Glass</span><input type="color" value={theme.bgPrimary} onChange={(e) => setTheme((t) => ({ ...t, bgPrimary: e.target.value, glassBg: hexToRgba(e.target.value, 0.45) }))} /></div>
                     </div>
                   </div>
-
                   <div className="settings-field">
                     <label>Appearance</label>
                     <div className="theme-sliders">
-                      <div className="slider-row">
-                        <span className="slider-label">Blur</span>
-                        <input type="range" min="0" max="60" value={theme.panelBlur} onChange={(e) => setTheme((t) => ({ ...t, panelBlur: parseInt(e.target.value) }))} className="slider" />
-                        <span className="slider-value">{theme.panelBlur}px</span>
-                      </div>
-                      <div className="slider-row">
-                        <span className="slider-label">Radius</span>
-                        <input type="range" min="0" max="32" value={theme.radius} onChange={(e) => setTheme((t) => ({ ...t, radius: parseInt(e.target.value) }))} className="slider" />
-                        <span className="slider-value">{theme.radius}px</span>
-                      </div>
-                      <div className="slider-row">
-                        <span className="slider-label">Clock</span>
-                        <input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" />
-                        <span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span>
-                      </div>
+                      <div className="slider-row"><span className="slider-label">Blur</span><input type="range" min="0" max="60" value={theme.panelBlur} onChange={(e) => setTheme((t) => ({ ...t, panelBlur: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.panelBlur}px</span></div>
+                      <div className="slider-row"><span className="slider-label">Radius</span><input type="range" min="0" max="32" value={theme.radius} onChange={(e) => setTheme((t) => ({ ...t, radius: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.radius}px</span></div>
+                      <div className="slider-row"><span className="slider-label">Clock</span><input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" /><span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span></div>
                     </div>
                   </div>
-
                   <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset to default theme</button>
                 </div>
               )}
 
-              {/* Footer actions */}
               <div className="settings-actions">
                 <button className="btn-primary" onClick={saveSettings}>Save & Close</button>
                 <button className="btn-secondary" onClick={() => setShowSettings(false)}>Cancel</button>

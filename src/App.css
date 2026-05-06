@@ -180,19 +180,17 @@ html, body, #root {
 
 /* ==================== AUTO-HIDE ==================== */
 
-.ui-hideable {
+.widget-wrapper {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
   transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.ui-hidden .ui-hideable {
+.ui-hidden .widget-wrapper.ui-hideable {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translate(-50%, calc(-50% + 10px));
   pointer-events: none;
-}
-
-.ui-hidden .clock-area {
-  opacity: 1;
-  transform: none;
 }
 
 /* ==================== TOP BAR ==================== */
@@ -1053,10 +1051,257 @@ html, body, #root {
 }
 
 
+/* ==================== WIDGET DRAG & EDIT ==================== */
+
+.widget-wrapper.edit-mode {
+  cursor: grab;
+  z-index: 10;
+}
+
+.widget-wrapper.edit-mode:active {
+  cursor: grabbing;
+}
+
+.widget-drag-handle {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.edit-mode .widget-drag-handle {
+  opacity: 1;
+}
+
+.widget-drag-handle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ==================== SNAP GUIDES ==================== */
+
+.snap-guide {
+  position: absolute;
+  background: var(--accent);
+  opacity: 0.4;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.snap-guide.vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.snap-guide.horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+/* ==================== SETTINGS BUTTONS ROW ==================== */
+
+.settings-buttons-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ==================== TIMER WRAPPER ==================== */
+
+.timer-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ==================== VISIBILITY GRID ==================== */
+
+.visibility-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.visibility-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.visibility-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+}
+
+.visibility-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ==================== PRESET CARDS ==================== */
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+}
+
+.preset-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--glass-border-hover);
+}
+
+.preset-card.active {
+  border-color: var(--accent);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.preset-card-name {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  padding: 0;
+}
+
+.preset-card-name:hover {
+  color: var(--accent);
+}
+
+.preset-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preset-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-card-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.preset-card-btn.delete:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.active-preset-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.active-preset-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.preset-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.preset-rename-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: var(--font-body);
+  outline: none;
+}
+
+.preset-edit-json {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.preset-edit-json textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  outline: none;
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
 @media (max-width: 800px) {
   :root { --clock-size: clamp(3rem, 8vw, 5rem); }
   .content { padding: 18px 22px; }
-  .top-bar, .bottom-bar { flex-direction: column; gap: 10px; }
   .glass-panel { padding: 10px 16px; font-size: 0.9rem; }
   .settings-modal { width: 100%; height: 80vh; border-radius: 0; }
   .settings-sidebar { width: 64px; min-width: 64px; max-width: 64px; flex: 0 0 64px; padding: 16px 8px; }
