@@ -35,6 +35,9 @@ interface ThemeColors {
   accent: string; accentHover: string;
   glassBg: string; glassBorder: string;
   panelBlur: number; clockSize: string; radius: number;
+  bgOverlayOpacity: number; bgOverlayBlur: number;
+  fontFamily: string; fontSizeBase: string;
+  widgetGap: string; widgetPadding: string;
   widgetStyles: Record<string, Partial<WidgetStyle>>;
   customCss: string;
 }
@@ -67,6 +70,9 @@ const DEFAULT_THEME: ThemeColors = {
   accent: '#22C55E', accentHover: '#16A34A',
   glassBg: 'rgba(15, 23, 42, 0.45)', glassBorder: 'rgba(255, 255, 255, 0.08)',
   panelBlur: 24, clockSize: 'clamp(5.5rem, 13vw, 9.5rem)', radius: 16,
+  bgOverlayOpacity: 0, bgOverlayBlur: 0,
+  fontFamily: '', fontSizeBase: '',
+  widgetGap: '', widgetPadding: '',
   widgetStyles: {},
   customCss: '',
 };
@@ -397,7 +403,7 @@ function App() {
 
   /* --- settings --- */
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'background' | 'weather' | 'themes' | 'theme' | 'layout'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'appearance' | 'background' | 'weather' | 'widgets' | 'layout' | 'themes'>('general');
   const [settingsSearch, setSettingsSearch] = useState('');
 
   /* --- theme --- */
@@ -546,6 +552,10 @@ function App() {
     r.style.setProperty('--panel-blur', `${theme.panelBlur}px`);
     r.style.setProperty('--clock-size', theme.clockSize);
     r.style.setProperty('--radius', `${theme.radius}px`);
+    r.style.setProperty('--overlay-opacity', String(theme.bgOverlayOpacity));
+    r.style.setProperty('--overlay-blur', `${theme.bgOverlayBlur}px`);
+    if (theme.fontFamily) r.style.setProperty('--font-body', theme.fontFamily);
+    if (theme.fontSizeBase) r.style.setProperty('--font-size-base', theme.fontSizeBase);
   }, [theme]);
 
   // Inject custom CSS
@@ -984,14 +994,15 @@ function App() {
   /* ==========================================================
      SETTINGS TABS
      ========================================================== */
-  const tabs: { id: 'general' | 'background' | 'weather' | 'themes' | 'theme' | 'layout'; label: string; icon: React.ReactNode }[] = [
-    { id: 'general', label: 'General', icon: <IconGeneral /> },
-    { id: 'background', label: 'Background', icon: <IconBg /> },
-    { id: 'weather', label: 'Weather', icon: <IconWeatherIco /> },
-    { id: 'layout', label: 'Layout', icon: <IconLayout /> },
-    { id: 'themes', label: 'Themes', icon: <IconThemes /> },
-    { id: 'theme', label: 'Theme', icon: <IconPalette /> },
-  ];
+   const tabs: { id: 'general' | 'appearance' | 'background' | 'weather' | 'widgets' | 'layout' | 'themes'; label: string; icon: React.ReactNode }[] = [
+     { id: 'general', label: 'General', icon: <IconGeneral /> },
+     { id: 'appearance', label: 'Appearance', icon: <IconPalette /> },
+     { id: 'background', label: 'Background', icon: <IconBg /> },
+     { id: 'weather', label: 'Weather', icon: <IconWeatherIco /> },
+     { id: 'widgets', label: 'Widgets', icon: <IconLayout /> },
+     { id: 'layout', label: 'Layout', icon: <IconLayout /> },
+     { id: 'themes', label: 'Themes', icon: <IconThemes /> },
+   ];
   const visibleTabs = settingsSearch ? tabs.filter((t) => t.label.toLowerCase().includes(settingsSearch.toLowerCase())) : tabs;
 
   /* ==========================================================
@@ -1561,69 +1572,228 @@ function App() {
                 </div>
               )}
 
-              {/* THEME */}
-              {settingsTab === 'theme' && (
+              {/* APPEARANCE */}
+              {settingsTab === 'appearance' && (
                 <div className="settings-section">
-                  <h3>Theme</h3>
+                  <h3>Appearance</h3>
+
                   <div className="settings-field">
-                    <label>Colors</label>
-                    <div className="theme-grid">
-                      <div className="theme-item"><span>Background</span><input type="color" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} /></div>
-                      <div className="theme-item"><span>Accent</span><input type="color" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value, accentHover: e.target.value }))} /></div>
-                      <div className="theme-item"><span>Text</span><input type="color" value={theme.textPrimary} onChange={(e) => setTheme((t) => ({ ...t, textPrimary: e.target.value }))} /></div>
-                      <div className="theme-item"><span>Glass</span><input type="color" value={theme.bgPrimary} onChange={(e) => setTheme((t) => ({ ...t, bgPrimary: e.target.value, glassBg: hexToRgba(e.target.value, 0.45) }))} /></div>
+                    <label>Background Color</label>
+                    <div className="color-row">
+                      <input type="color" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} />
+                      <input type="text" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} className="color-text" />
                     </div>
                   </div>
+
                   <div className="settings-field">
-                    <label>Appearance</label>
+                    <label>Panel Colors</label>
+                    <div className="color-grid">
+                      <div className="color-item">
+                        <span>Panel BG</span>
+                        <input type="color" value={theme.bgPrimary} onChange={(e) => setTheme((t) => ({ ...t, bgPrimary: e.target.value, glassBg: hexToRgba(e.target.value, 0.45) }))} />
+                        <input type="text" value={theme.bgPrimary} onChange={(e) => setTheme((t) => ({ ...t, bgPrimary: e.target.value }))} className="color-text" />
+                      </div>
+                      <div className="color-item">
+                        <span>Panel Alt</span>
+                        <input type="color" value={theme.bgSecondary} onChange={(e) => setTheme((t) => ({ ...t, bgSecondary: e.target.value }))} />
+                        <input type="text" value={theme.bgSecondary} onChange={(e) => setTheme((t) => ({ ...t, bgSecondary: e.target.value }))} className="color-text" />
+                      </div>
+                      <div className="color-item">
+                        <span>Glass BG</span>
+                        <input type="text" value={theme.glassBg} onChange={(e) => setTheme((t) => ({ ...t, glassBg: e.target.value }))} className="color-text full" />
+                      </div>
+                      <div className="color-item">
+                        <span>Glass Border</span>
+                        <input type="text" value={theme.glassBorder} onChange={(e) => setTheme((t) => ({ ...t, glassBorder: e.target.value }))} className="color-text full" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Text Colors</label>
+                    <div className="color-grid">
+                      <div className="color-item">
+                        <span>Primary</span>
+                        <input type="color" value={theme.textPrimary} onChange={(e) => setTheme((t) => ({ ...t, textPrimary: e.target.value }))} />
+                        <input type="text" value={theme.textPrimary} onChange={(e) => setTheme((t) => ({ ...t, textPrimary: e.target.value }))} className="color-text" />
+                      </div>
+                      <div className="color-item">
+                        <span>Secondary</span>
+                        <input type="color" value={theme.textSecondary} onChange={(e) => setTheme((t) => ({ ...t, textSecondary: e.target.value }))} />
+                        <input type="text" value={theme.textSecondary} onChange={(e) => setTheme((t) => ({ ...t, textSecondary: e.target.value }))} className="color-text" />
+                      </div>
+                      <div className="color-item">
+                        <span>Dim</span>
+                        <input type="color" value={theme.textDim} onChange={(e) => setTheme((t) => ({ ...t, textDim: e.target.value }))} />
+                        <input type="text" value={theme.textDim} onChange={(e) => setTheme((t) => ({ ...t, textDim: e.target.value }))} className="color-text" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Accent Colors</label>
+                    <div className="color-grid">
+                      <div className="color-item">
+                        <span>Accent</span>
+                        <input type="color" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value }))} />
+                        <input type="text" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value }))} className="color-text" />
+                      </div>
+                      <div className="color-item">
+                        <span>Accent Hover</span>
+                        <input type="color" value={theme.accentHover} onChange={(e) => setTheme((t) => ({ ...t, accentHover: e.target.value }))} />
+                        <input type="text" value={theme.accentHover} onChange={(e) => setTheme((t) => ({ ...t, accentHover: e.target.value }))} className="color-text" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Background Overlay</label>
+                    <div className="theme-sliders">
+                      <div className="slider-row"><span className="slider-label">Opacity</span><input type="range" min="0" max="1" step="0.05" value={theme.bgOverlayOpacity} onChange={(e) => setTheme((t) => ({ ...t, bgOverlayOpacity: parseFloat(e.target.value) }))} className="slider" /><span className="slider-value">{Math.round(theme.bgOverlayOpacity * 100)}%</span></div>
+                      <div className="slider-row"><span className="slider-label">Blur</span><input type="range" min="0" max="20" value={theme.bgOverlayBlur} onChange={(e) => setTheme((t) => ({ ...t, bgOverlayBlur: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.bgOverlayBlur}px</span></div>
+                    </div>
+                    <p className="hint">Controls the dark overlay on YouTube, image, and video backgrounds. Set to 0 for no overlay.</p>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Panel Styling</label>
                     <div className="theme-sliders">
                       <div className="slider-row"><span className="slider-label">Blur</span><input type="range" min="0" max="60" value={theme.panelBlur} onChange={(e) => setTheme((t) => ({ ...t, panelBlur: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.panelBlur}px</span></div>
-                      <div className="slider-row"><span className="slider-label">Radius</span><input type="range" min="0" max="32" value={theme.radius} onChange={(e) => setTheme((t) => ({ ...t, radius: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.radius}px</span></div>
-                      <div className="slider-row"><span className="slider-label">Clock</span><input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" /><span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span></div>
+                      <div className="slider-row"><span className="slider-label">Radius</span><input type="range" min="0" max="40" value={theme.radius} onChange={(e) => setTheme((t) => ({ ...t, radius: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.radius}px</span></div>
                     </div>
                   </div>
+
+                  <div className="settings-field">
+                    <label>Typography</label>
+                    <div className="settings-field">
+                      <label>Font Family</label>
+                      <input type="text" value={theme.fontFamily} onChange={(e) => setTheme((t) => ({ ...t, fontFamily: e.target.value }))} placeholder="e.g. 'Inter', sans-serif" />
+                    </div>
+                    <div className="settings-field">
+                      <label>Base Font Size</label>
+                      <input type="text" value={theme.fontSizeBase} onChange={(e) => setTheme((t) => ({ ...t, fontSizeBase: e.target.value }))} placeholder="e.g. 16px" />
+                    </div>
+                    <div className="slider-row"><span className="slider-label">Clock Size</span><input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" /><span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span></div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Widget Spacing</label>
+                    <div className="settings-field">
+                      <label>Widget Gap</label>
+                      <input type="text" value={theme.widgetGap} onChange={(e) => setTheme((t) => ({ ...t, widgetGap: e.target.value }))} placeholder="e.g. 12px" />
+                    </div>
+                    <div className="settings-field">
+                      <label>Widget Padding</label>
+                      <input type="text" value={theme.widgetPadding} onChange={(e) => setTheme((t) => ({ ...t, widgetPadding: e.target.value }))} placeholder="e.g. 16px 24px" />
+                    </div>
+                  </div>
+
                   <div className="settings-field">
                     <label>Custom CSS</label>
-                    <textarea className="custom-css-textarea" value={theme.customCss} onChange={(e) => setTheme((t) => ({ ...t, customCss: e.target.value }))} rows={6} placeholder="/* Write custom CSS here */" />
+                    <textarea className="custom-css-textarea" value={theme.customCss} onChange={(e) => setTheme((t) => ({ ...t, customCss: e.target.value }))} rows={8} placeholder="/* Write custom CSS here */" />
                     <p className="hint">Custom CSS is injected globally. Use selectors like [data-widget=&quot;clock&quot;] to target widgets.</p>
                   </div>
-                  <div className="settings-field">
-                    <label>Widget Styles</label>
-                    <div className="widget-styles-list">
-                      {(Object.keys(visibility) as Array<keyof Visibility>).map((key) => (
-                        <div key={key} className="widget-style-card">
-                          <span className="widget-style-name">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
-                          <div className="widget-style-quick">
-                            <div className="widget-settings-field compact">
-                              <label>Font Size</label>
-                              <input type="text" value={theme.widgetStyles[key]?.fontSize || ''} placeholder="auto" onChange={(e) => updateWidgetStyle(key, { fontSize: e.target.value || undefined })} />
-                            </div>
-                            <div className="widget-settings-field compact">
-                              <label>Scale</label>
-                              <div className="slider-row">
-                                <input type="range" min="0.5" max="2" step="0.05" value={theme.widgetStyles[key]?.scale ?? 1} onChange={(e) => updateWidgetStyle(key, { scale: parseFloat(e.target.value) })} className="slider" />
-                                <span className="slider-value">{(theme.widgetStyles[key]?.scale ?? 1).toFixed(2)}x</span>
-                              </div>
-                            </div>
-                            <div className="widget-settings-field compact">
-                              <label>Opacity</label>
-                              <div className="slider-row">
-                                <input type="range" min="0" max="1" step="0.05" value={theme.widgetStyles[key]?.opacity ?? 1} onChange={(e) => updateWidgetStyle(key, { opacity: parseFloat(e.target.value) })} className="slider" />
-                                <span className="slider-value">{Math.round((theme.widgetStyles[key]?.opacity ?? 1) * 100)}%</span>
-                              </div>
+
+                  <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset to default theme</button>
+                </div>
+              )}
+
+              {/* WIDGETS */}
+              {settingsTab === 'widgets' && (
+                <div className="settings-section">
+                  <h3>Widgets</h3>
+                  <p className="hint">Configure each widget's appearance. Changes apply immediately.</p>
+
+                  {(Object.keys(visibility) as Array<keyof Visibility>).map((key) => {
+                    const ws = theme.widgetStyles[key] || {};
+                    return (
+                      <div key={key} className="widget-config-card">
+                        <div className="widget-config-header">
+                          <span className="widget-config-name">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
+                          <button className={`visibility-chip ${visibility[key] ? 'active' : ''}`} onClick={() => setVisibility((v) => ({ ...v, [key]: !v[key] }))}>
+                            {visibility[key] ? <IconEye /> : <IconEyeOff />}
+                          </button>
+                        </div>
+                        <div className="widget-config-body">
+                          <div className="widget-config-row">
+                            <label>Color</label>
+                            <div className="color-row">
+                              <input type="color" value={ws.color || theme.textPrimary} onChange={(e) => updateWidgetStyle(key, { color: e.target.value })} />
+                              <input type="text" value={ws.color || ''} onChange={(e) => updateWidgetStyle(key, { color: e.target.value || undefined })} className="color-text" placeholder="inherit" />
                             </div>
                           </div>
+                          <div className="widget-config-row">
+                            <label>Font Size</label>
+                            <input type="text" value={ws.fontSize || ''} onChange={(e) => updateWidgetStyle(key, { fontSize: e.target.value || undefined })} placeholder="auto" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Font Weight</label>
+                            <div className="slider-row">
+                              <input type="range" min="100" max="900" step="100" value={ws.fontWeight ?? 400} onChange={(e) => updateWidgetStyle(key, { fontWeight: parseInt(e.target.value) })} className="slider" />
+                              <span className="slider-value">{ws.fontWeight ?? 400}</span>
+                            </div>
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Opacity</label>
+                            <div className="slider-row">
+                              <input type="range" min="0" max="1" step="0.05" value={ws.opacity ?? 1} onChange={(e) => updateWidgetStyle(key, { opacity: parseFloat(e.target.value) })} className="slider" />
+                              <span className="slider-value">{Math.round((ws.opacity ?? 1) * 100)}%</span>
+                            </div>
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Scale</label>
+                            <div className="slider-row">
+                              <input type="range" min="0.5" max="2" step="0.05" value={ws.scale ?? 1} onChange={(e) => updateWidgetStyle(key, { scale: parseFloat(e.target.value) })} className="slider" />
+                              <span className="slider-value">{(ws.scale ?? 1).toFixed(2)}x</span>
+                            </div>
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Border Radius</label>
+                            <div className="slider-row">
+                              <input type="range" min="0" max="40" value={ws.borderRadius ?? theme.radius} onChange={(e) => updateWidgetStyle(key, { borderRadius: parseInt(e.target.value) })} className="slider" />
+                              <span className="slider-value">{ws.borderRadius ?? theme.radius}px</span>
+                            </div>
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Backdrop Blur</label>
+                            <div className="slider-row">
+                              <input type="range" min="0" max="60" value={ws.backdropBlur ?? theme.panelBlur} onChange={(e) => updateWidgetStyle(key, { backdropBlur: parseInt(e.target.value) })} className="slider" />
+                              <span className="slider-value">{ws.backdropBlur ?? theme.panelBlur}px</span>
+                            </div>
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Background</label>
+                            <input type="text" value={ws.background || ''} onChange={(e) => updateWidgetStyle(key, { background: e.target.value || undefined })} placeholder="inherit" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Border Color</label>
+                            <input type="text" value={ws.borderColor || ''} onChange={(e) => updateWidgetStyle(key, { borderColor: e.target.value || undefined })} placeholder="inherit" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Padding</label>
+                            <input type="text" value={ws.padding || ''} onChange={(e) => updateWidgetStyle(key, { padding: e.target.value || undefined })} placeholder="inherit" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Gap</label>
+                            <input type="text" value={ws.gap || ''} onChange={(e) => updateWidgetStyle(key, { gap: e.target.value || undefined })} placeholder="inherit" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Letter Spacing</label>
+                            <input type="text" value={ws.letterSpacing || ''} onChange={(e) => updateWidgetStyle(key, { letterSpacing: e.target.value || undefined })} placeholder="normal" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Text Shadow</label>
+                            <input type="text" value={ws.textShadow || ''} onChange={(e) => updateWidgetStyle(key, { textShadow: e.target.value || undefined })} placeholder="none" />
+                          </div>
+                          <div className="widget-config-row">
+                            <label>Line Height</label>
+                            <input type="text" value={ws.lineHeight || ''} onChange={(e) => updateWidgetStyle(key, { lineHeight: e.target.value || undefined })} placeholder="normal" />
+                          </div>
+                          <button className="btn-link small" onClick={() => updateWidgetStyle(key, {})}>Reset Styles</button>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="settings-field">
-                    <label>Theme Transfer</label>
-                    <div className="preset-actions">
-                      <button className="icon-text-btn" onClick={openThemesFolder}><IconFolder /> Open Themes Folder</button>
-                    </div>
-                  </div>
-                  <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset to default theme</button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
