@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { open as openUrl } from '@tauri-apps/plugin-shell';
 import JSZip from 'jszip';
 import { storeSet, storeGet, storeDelete, migrateFromLocalStorage } from './store';
 import './App.css';
@@ -19,6 +20,7 @@ interface WidgetStyle {
   padding?: string;
   gap?: string;
   borderRadius?: number;
+  borderWidth?: number;
   background?: string;
   borderColor?: string;
   backdropBlur?: number;
@@ -26,6 +28,7 @@ interface WidgetStyle {
   letterSpacing?: string;
   textShadow?: string;
   lineHeight?: string;
+  textTransform?: string;
   customCss?: string;
 }
 
@@ -146,6 +149,340 @@ const BUILT_IN_THEMES: SavedTheme[] = [
       clock: true, date: true, nowPlaying: false, timer: false,
     },
   }),
+
+  // Aurora — ethereal northern lights with floating glass
+  makeDefaultTheme('Aurora', {
+    bgDeep: '#0a0a1a', bgPrimary: '#0d1b2a', bgSecondary: '#1b2838',
+    textPrimary: '#e0f7fa', textSecondary: '#80deea', textDim: '#4db6ac',
+    accent: '#00e5ff', accentHover: '#18ffff',
+    glassBg: 'rgba(0, 229, 255, 0.06)', glassBorder: 'rgba(0, 229, 255, 0.15)',
+    panelBlur: 32, radius: 24,
+    bgOverlayOpacity: 0.3, bgOverlayBlur: 8,
+    widgetStyles: {
+      clock: {
+        fontSize: 'clamp(6rem, 14vw, 10rem)',
+        fontWeight: 100,
+        textShadow: '0 0 40px rgba(0, 229, 255, 0.3), 0 0 80px rgba(0, 229, 255, 0.1)',
+        letterSpacing: '-0.04em',
+        backdropBlur: 0,
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      date: {
+        fontSize: '1rem',
+        fontWeight: 300,
+        letterSpacing: '0.3em',
+        textTransform: 'uppercase',
+        textShadow: '0 0 20px rgba(0, 229, 255, 0.2)',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      weather: {
+        borderRadius: 20,
+        backdropBlur: 40,
+        background: 'rgba(0, 229, 255, 0.04)',
+        borderColor: 'rgba(0, 229, 255, 0.2)',
+        padding: '16px 24px',
+      },
+    },
+    customCss: `
+      .clock-hours, .clock-minutes { font-weight: 100; }
+      .clock-sep { opacity: 0.4; animation: none; }
+      .glass-panel { border-width: 0.5px; }
+      [data-widget="clock"] { transform: translate(-50%, -50%) !important; }
+    `,
+  }, {
+    positions: {
+      weather: { x: 50, y: 8 }, calendar: { x: 50, y: 15 },
+      settingsButtons: { x: 50, y: 92 }, clock: { x: 50, y: 42 },
+      date: { x: 50, y: 58 }, nowPlaying: { x: 50, y: 85 },
+      timer: { x: 85, y: 85 },
+    },
+    visibility: {
+      weather: true, calendar: true, settingsButtons: true,
+      clock: true, date: true, nowPlaying: true, timer: false,
+    },
+  }),
+
+  // Brutalist — raw, bold, no glass
+  makeDefaultTheme('Brutalist', {
+    bgDeep: '#f5f5f0', bgPrimary: '#ffffff', bgSecondary: '#e8e8e0',
+    textPrimary: '#111111', textSecondary: '#444444', textDim: '#888888',
+    accent: '#ff3300', accentHover: '#ff5500',
+    glassBg: 'rgba(255, 255, 255, 0.9)', glassBorder: '#111111',
+    panelBlur: 0, radius: 0,
+    bgOverlayOpacity: 0, bgOverlayBlur: 0,
+    widgetStyles: {
+      clock: {
+        fontSize: 'clamp(7rem, 16vw, 12rem)',
+        fontWeight: 900,
+        letterSpacing: '-0.06em',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+        textShadow: 'none',
+      },
+      date: {
+        fontSize: '1.2rem',
+        fontWeight: 700,
+        letterSpacing: '0.15em',
+        textTransform: 'uppercase',
+        background: '#111111',
+        color: '#ffffff',
+        padding: '8px 20px',
+        borderRadius: 0,
+      },
+      weather: {
+        borderRadius: 0,
+        borderWidth: 3,
+        background: '#ffffff',
+        borderColor: '#111111',
+        padding: '16px 24px',
+        backdropBlur: 0,
+      },
+      calendar: {
+        borderRadius: 0,
+        borderWidth: 3,
+        background: '#ffffff',
+        borderColor: '#111111',
+        padding: '12px 20px',
+        backdropBlur: 0,
+      },
+      settingsButtons: {
+        background: 'transparent',
+        borderColor: 'transparent',
+        backdropBlur: 0,
+      },
+    },
+    customCss: `
+      .glass-panel { box-shadow: 8px 8px 0 #111111; border-radius: 0; }
+      .glass-icon-btn { border-radius: 0; border: 2px solid #111; box-shadow: 4px 4px 0 #111; }
+      .glass-icon-btn:hover { box-shadow: 2px 2px 0 #111; transform: translate(2px, 2px); }
+      .clock-sep { animation: none; opacity: 1; }
+      .clock-hours, .clock-minutes { font-weight: 900; }
+      .date-text { border-radius: 0; }
+    `,
+  }, {
+    positions: {
+      weather: { x: 8, y: 8 }, calendar: { x: 8, y: 20 },
+      settingsButtons: { x: 92, y: 8 }, clock: { x: 50, y: 45 },
+      date: { x: 50, y: 60 }, nowPlaying: { x: 8, y: 90 },
+      timer: { x: 92, y: 90 },
+    },
+    visibility: {
+      weather: true, calendar: true, settingsButtons: true,
+      clock: true, date: true, nowPlaying: true, timer: true,
+    },
+  }),
+
+  // Vaporwave — retro 80s neon grid
+  makeDefaultTheme('Vaporwave', {
+    bgDeep: '#1a0a2e', bgPrimary: '#2d1b4e', bgSecondary: '#3d2b5e',
+    textPrimary: '#ff71ce', textSecondary: '#01cdfe', textDim: '#b967ff',
+    accent: '#fffb96', accentHover: '#ffe156',
+    glassBg: 'rgba(45, 27, 78, 0.5)', glassBorder: 'rgba(255, 113, 206, 0.2)',
+    panelBlur: 20, radius: 8,
+    bgOverlayOpacity: 0.2, bgOverlayBlur: 2,
+    widgetStyles: {
+      clock: {
+        fontSize: 'clamp(5rem, 12vw, 8rem)',
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        textShadow: '0 0 20px rgba(255, 113, 206, 0.6), 0 0 40px rgba(255, 113, 206, 0.3), 2px 2px 0 #01cdfe',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      date: {
+        fontSize: '0.95rem',
+        fontWeight: 600,
+        letterSpacing: '0.25em',
+        textTransform: 'uppercase',
+        textShadow: '0 0 10px rgba(1, 205, 254, 0.5)',
+        color: '#01cdfe',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      weather: {
+        borderRadius: 8,
+        backdropBlur: 24,
+        background: 'rgba(45, 27, 78, 0.6)',
+        borderColor: 'rgba(255, 113, 206, 0.3)',
+        padding: '14px 20px',
+      },
+      calendar: {
+        borderRadius: 8,
+        backdropBlur: 24,
+        background: 'rgba(45, 27, 78, 0.6)',
+        borderColor: 'rgba(1, 205, 254, 0.2)',
+        padding: '10px 18px',
+      },
+    },
+    customCss: `
+      .clock-hours, .clock-minutes { font-weight: 700; }
+      .clock-sep { animation: none; opacity: 0.8; color: #fffb96; }
+      .glass-panel { box-shadow: 0 0 15px rgba(255, 113, 206, 0.15); }
+      .glass-icon-btn { border-radius: 8px; }
+      .glass-icon-btn:hover { box-shadow: 0 0 12px rgba(255, 113, 206, 0.4); }
+      .preset-btn.active { background: #ff71ce; border-color: #ff71ce; }
+    `,
+  }, {
+    positions: {
+      weather: { x: 12, y: 12 }, calendar: { x: 88, y: 12 },
+      settingsButtons: { x: 50, y: 90 }, clock: { x: 50, y: 38 },
+      date: { x: 50, y: 52 }, nowPlaying: { x: 12, y: 88 },
+      timer: { x: 88, y: 88 },
+    },
+    visibility: {
+      weather: true, calendar: true, settingsButtons: true,
+      clock: true, date: true, nowPlaying: true, timer: true,
+    },
+  }),
+
+  // Zen — Japanese-inspired, vertical layout, ultra minimal
+  makeDefaultTheme('Zen', {
+    bgDeep: '#1c1c1e', bgPrimary: '#2c2c2e', bgSecondary: '#3a3a3c',
+    textPrimary: '#f5f5f7', textSecondary: '#a1a1a6', textDim: '#636366',
+    accent: '#d4a574', accentHover: '#c49464',
+    glassBg: 'rgba(44, 44, 46, 0.4)', glassBorder: 'rgba(212, 165, 116, 0.1)',
+    panelBlur: 16, radius: 4,
+    bgOverlayOpacity: 0.4, bgOverlayBlur: 4,
+    widgetStyles: {
+      clock: {
+        fontSize: 'clamp(4rem, 10vw, 7rem)',
+        fontWeight: 300,
+        letterSpacing: '0.12em',
+        textShadow: 'none',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      date: {
+        fontSize: '0.85rem',
+        fontWeight: 400,
+        letterSpacing: '0.4em',
+        textTransform: 'uppercase',
+        color: '#d4a574',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      weather: {
+        borderRadius: 4,
+        backdropBlur: 16,
+        background: 'rgba(44, 44, 46, 0.5)',
+        borderColor: 'rgba(212, 165, 116, 0.15)',
+        padding: '12px 18px',
+        fontSize: '0.85rem',
+      },
+      calendar: {
+        borderRadius: 4,
+        backdropBlur: 16,
+        background: 'rgba(44, 44, 46, 0.5)',
+        borderColor: 'rgba(212, 165, 116, 0.1)',
+        padding: '10px 16px',
+        fontSize: '0.8rem',
+      },
+      settingsButtons: {
+        background: 'transparent',
+        borderColor: 'transparent',
+        backdropBlur: 0,
+      },
+    },
+    customCss: `
+      .clock-hours, .clock-minutes { font-weight: 300; }
+      .clock-sep { animation: none; opacity: 0.3; }
+      .glass-panel { border-width: 0.5px; }
+      .glass-icon-btn { width: 36px; height: 36px; border-radius: 4px; }
+      .date-text { letter-spacing: 0.4em; }
+    `,
+  }, {
+    positions: {
+      weather: { x: 50, y: 6 }, calendar: { x: 50, y: 14 },
+      settingsButtons: { x: 50, y: 94 }, clock: { x: 50, y: 40 },
+      date: { x: 50, y: 54 }, nowPlaying: { x: 50, y: 86 },
+      timer: { x: 90, y: 86 },
+    },
+    visibility: {
+      weather: true, calendar: true, settingsButtons: true,
+      clock: true, date: true, nowPlaying: true, timer: false,
+    },
+  }),
+
+  // Neon — cyberpunk with glowing borders
+  makeDefaultTheme('Neon', {
+    bgDeep: '#0a0a0a', bgPrimary: '#111111', bgSecondary: '#1a1a1a',
+    textPrimary: '#ffffff', textSecondary: '#00ff88', textDim: '#00ff88',
+    accent: '#ff0066', accentHover: '#ff3388',
+    glassBg: 'rgba(0, 0, 0, 0.7)', glassBorder: 'rgba(255, 0, 102, 0.3)',
+    panelBlur: 8, radius: 2,
+    bgOverlayOpacity: 0.5, bgOverlayBlur: 6,
+    widgetStyles: {
+      clock: {
+        fontSize: 'clamp(6rem, 15vw, 11rem)',
+        fontWeight: 800,
+        letterSpacing: '-0.03em',
+        textShadow: '0 0 30px rgba(255, 0, 102, 0.5), 0 0 60px rgba(255, 0, 102, 0.2)',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      date: {
+        fontSize: '1rem',
+        fontWeight: 600,
+        letterSpacing: '0.2em',
+        textTransform: 'uppercase',
+        textShadow: '0 0 15px rgba(0, 255, 136, 0.4)',
+        color: '#00ff88',
+        background: 'transparent',
+        borderColor: 'transparent',
+        padding: '0',
+      },
+      weather: {
+        borderRadius: 2,
+        backdropBlur: 8,
+        background: 'rgba(0, 0, 0, 0.8)',
+        borderColor: 'rgba(0, 255, 136, 0.3)',
+        padding: '14px 20px',
+        color: '#00ff88',
+      },
+      calendar: {
+        borderRadius: 2,
+        backdropBlur: 8,
+        background: 'rgba(0, 0, 0, 0.8)',
+        borderColor: 'rgba(0, 255, 136, 0.2)',
+        padding: '10px 16px',
+        color: '#00ff88',
+      },
+      settingsButtons: {
+        background: 'transparent',
+        borderColor: 'transparent',
+        backdropBlur: 0,
+      },
+    },
+    customCss: `
+      .clock-hours, .clock-minutes { font-weight: 800; }
+      .clock-sep { animation: none; opacity: 0.6; color: #ff0066; }
+      .glass-panel { box-shadow: 0 0 20px rgba(255, 0, 102, 0.1), inset 0 0 20px rgba(255, 0, 102, 0.05); }
+      .glass-icon-btn { border-radius: 2px; border: 1px solid rgba(255, 0, 102, 0.3); }
+      .glass-icon-btn:hover { box-shadow: 0 0 15px rgba(255, 0, 102, 0.4); border-color: #ff0066; }
+      .preset-btn.active { background: #ff0066; box-shadow: 0 0 10px rgba(255, 0, 102, 0.5); }
+    `,
+  }, {
+    positions: {
+      weather: { x: 10, y: 10 }, calendar: { x: 90, y: 10 },
+      settingsButtons: { x: 10, y: 90 }, clock: { x: 50, y: 42 },
+      date: { x: 50, y: 56 }, nowPlaying: { x: 90, y: 90 },
+      timer: { x: 50, y: 90 },
+    },
+    visibility: {
+      weather: true, calendar: true, settingsButtons: true,
+      clock: true, date: true, nowPlaying: true, timer: true,
+    },
+  }),
 ];
 
 function genId() { return Math.random().toString(36).slice(2, 10); }
@@ -162,23 +499,6 @@ const Ico = ({ d, w = 20 }: { d: string; w?: number }) => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
 );
 const IconSettings   = () => <Ico d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />;
-const IconFocus      = () => <Ico d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />;
-const IconFocusOff   = () => <Ico d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />;
-const IconTimer      = () => <Ico d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-14v4l3 3" />;
-const IconPlay       = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>;
-const IconPause      = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>;
-const IconReset      = () => <Ico d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />;
-const IconLocation   = () => <Ico d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />;
-const IconLock       = () => <Ico d="M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2zm-7-7a5 5 0 0 1 5 5v3H7V9a5 5 0 0 1 5-5z" />;
-const IconMusic      = () => <Ico d="M9 18V5l12-2v13" />;
-const IconCalendar   = () => <Ico d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />;
-const IconTrash      = () => <Ico d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />;
-const IconUpload     = () => <Ico d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />;
-const IconPlus       = () => <Ico d="M12 5v14M5 12h14" />;
-const IconGeneral    = () => <Ico d="M12 20h9M12 20V4m0 0H3m9 0v16" />;
-const IconBg         = () => <Ico d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />;
-const IconWeatherIco = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />;
-const IconPalette    = () => <Ico d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />;
 const IconThemes     = () => <Ico d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />;
 const IconLayout     = () => <Ico d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />;
 const IconMove       = () => <Ico d="M5 9l4-4 4 4M9 5v14" />;
@@ -188,6 +508,21 @@ const IconPencil     = () => <Ico d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1
 const IconCheck      = () => <Ico d="M20 6L9 17l-5-5" />;
 const IconX          = () => <Ico d="M18 6L6 18M6 6l12 12" />;
 const IconGlobe      = () => <Ico d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 0 1 0-16 8 8 0 0 1 0 16zM2 12h20" />;
+const IconLocation   = () => <Ico d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />;
+const IconLock       = () => <Ico d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4" />;
+const IconCalendar   = () => <Ico d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM16 2v4M8 2v4M3 10h18" />;
+const IconMusic      = () => <Ico d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />;
+const IconTimer      = () => <Ico d="M10 2h4M12 14l3-3M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" />;
+const IconPause      = () => <Ico d="M6 4h4v16H6zM14 4h4v16h-4z" />;
+const IconPlay       = () => <Ico d="M5 3l14 9-14 9V3z" />;
+const IconReset      = () => <Ico d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />;
+const IconTrash      = () => <Ico d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />;
+const IconUpload     = () => <Ico d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />;
+const IconPlus       = () => <Ico d="M12 5v14M5 12h14" />;
+const IconGeneral    = () => <Ico d="M12 20h9M12 20V4m0 0H3m9 0v16" />;
+const IconPalette    = () => <Ico d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />;
+const IconBg         = () => <Ico d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />;
+const IconWeatherIco = () => <Ico d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />;
 const IconSun        = () => <Ico d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />;
 const IconCloudSun   = () => <Ico d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9zM12 2v2m0 6v2m-7-5 1.5 1.5m12.5-1.5L19 5" />;
 const IconCloud      = () => <Ico d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" />;
@@ -312,6 +647,10 @@ function App() {
   const draggingRef = useRef<{ key: string; startX: number; startY: number; startPos: Pos } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [snapGuides, setSnapGuides] = useState<{ v: number | null; h: number | null }>({ v: null, h: null });
+  const [selectedWidget, setSelectedWidget] = useState<string | null>(null);
+  const [widgetScales, setWidgetScales] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{ key: string; handle: string; rect: DOMRect; unscaledW: number; unscaledH: number } | null>(null);
+  const resizeOverlayRef = useRef<HTMLDivElement>(null);
 
   /* --- weather --- */
   const [weather, setWeather] = useState<{ tempC: number; description: string; code: number } | null>(null);
@@ -333,12 +672,9 @@ function App() {
   const endTimeRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
 
-  /* --- focus --- */
-  const [focusMode, setFocusMode] = useState(false);
-
   /* --- settings --- */
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'appearance' | 'background' | 'weather' | 'widgets' | 'layout' | 'themes'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'appearance' | 'background' | 'weather' | 'layout' | 'themes'>('general');
   const [settingsPos, setSettingsPos] = useState({ x: 60, y: 40 });
   const settingsDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
@@ -545,9 +881,11 @@ function App() {
       if (s.letterSpacing) css += `${text} { letter-spacing: ${s.letterSpacing} !important; }\n`;
       if (s.textShadow) css += `${text} { text-shadow: ${s.textShadow} !important; }\n`;
       if (s.lineHeight) css += `${text} { line-height: ${s.lineHeight} !important; }\n`;
+      if (s.textTransform) css += `${text} { text-transform: ${s.textTransform} !important; }\n`;
       if (s.padding) css += `${inner} { padding: ${s.padding} !important; }\n`;
       if (s.gap) css += `${inner} { gap: ${s.gap} !important; }\n`;
       if (s.borderRadius !== undefined) css += `${inner} { border-radius: ${s.borderRadius}px !important; }\n`;
+      if (s.borderWidth !== undefined) css += `${inner} { border-width: ${s.borderWidth}px !important; }\n`;
       if (s.background) css += `${inner} { background: ${s.background} !important; }\n`;
       if (s.borderColor) css += `${inner} { border-color: ${s.borderColor} !important; }\n`;
       if (s.backdropBlur !== undefined) css += `${inner} { backdrop-filter: blur(${s.backdropBlur}px) !important; -webkit-backdrop-filter: blur(${s.backdropBlur}px) !important; }\n`;
@@ -783,6 +1121,61 @@ function App() {
     window.addEventListener('mouseup', onUp);
   };
 
+  const updateResizeOverlay = useCallback((widgetKey: string) => {
+    const widgetEl = document.querySelector(`[data-widget="${widgetKey}"]`) as HTMLElement | null;
+    const overlayEl = resizeOverlayRef.current;
+    const contentEl = contentRef.current;
+    if (!widgetEl || !overlayEl || !contentEl) return;
+    const wRect = widgetEl.getBoundingClientRect();
+    const cRect = contentEl.getBoundingClientRect();
+    overlayEl.style.left = `${wRect.left - cRect.left}px`;
+    overlayEl.style.top = `${wRect.top - cRect.top}px`;
+    overlayEl.style.width = `${wRect.width}px`;
+    overlayEl.style.height = `${wRect.height}px`;
+  }, []);
+
+  useEffect(() => {
+    if (!editLayoutMode || !selectedWidget) return;
+    let rafId = 0;
+    const sync = () => {
+      updateResizeOverlay(selectedWidget);
+      rafId = requestAnimationFrame(sync);
+    };
+    rafId = requestAnimationFrame(sync);
+    return () => cancelAnimationFrame(rafId);
+  }, [editLayoutMode, selectedWidget, widgetScales, updateResizeOverlay]);
+
+  const startResize = (e: React.MouseEvent, key: string, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = document.querySelector(`[data-widget="${key}"]`) as HTMLElement | null;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const currentScale = widgetScales[key] || 1;
+    const unscaledW = rect.width / currentScale;
+    const unscaledH = rect.height / currentScale;
+    resizeRef.current = { key, handle, rect, unscaledW, unscaledH };
+    const onMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const { rect: r, unscaledW: w0, unscaledH: h0 } = resizeRef.current;
+      const centerX = r.left + r.width / 2;
+      const centerY = r.top + r.height / 2;
+      const dx = ev.clientX - centerX;
+      const dy = ev.clientY - centerY;
+      const cursorDist = Math.sqrt(dx * dx + dy * dy);
+      const origHalfDiag = Math.sqrt(w0 * w0 + h0 * h0) / 2;
+      const newScale = Math.max(0.3, Math.min(3, cursorDist / origHalfDiag));
+      setWidgetScales((prev) => ({ ...prev, [key]: newScale }));
+    };
+    const onUp = () => {
+      resizeRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   const snapPosition = (x: number, y: number): { x: number; y: number; guides: { v: number | null; h: number | null } } => {
     const threshold = 2;
     let sx = Math.max(5, Math.min(95, x));
@@ -919,13 +1312,11 @@ function App() {
   /* ==========================================================
      KEYBOARD
      ========================================================== */
-  const toggleFocusMode = () => setFocusMode((f) => !f);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setShowSettings(false); setEditLayoutMode(false); setActiveWidgetSettings(null); }
       if (e.metaKey || e.ctrlKey) {
         if (e.key === ',') { e.preventDefault(); setShowSettings((s) => !s); }
-        if (e.key === 'f') { e.preventDefault(); toggleFocusMode(); }
         if (e.key === 'e') { e.preventDefault(); setEditLayoutMode((m) => !m); setActiveWidgetSettings(null); }
       }
     };
@@ -951,12 +1342,11 @@ function App() {
   /* ==========================================================
      SETTINGS TABS
      ========================================================== */
-   const tabs: { id: 'general' | 'appearance' | 'background' | 'weather' | 'widgets' | 'layout' | 'themes'; label: string; icon: React.ReactNode }[] = [
+   const tabs: { id: 'general' | 'appearance' | 'background' | 'weather' | 'layout' | 'themes'; label: string; icon: React.ReactNode }[] = [
      { id: 'general', label: 'General', icon: <IconGeneral /> },
      { id: 'appearance', label: 'Appearance', icon: <IconPalette /> },
      { id: 'background', label: 'Background', icon: <IconBg /> },
      { id: 'weather', label: 'Weather', icon: <IconWeatherIco /> },
-     { id: 'widgets', label: 'Widgets', icon: <IconLayout /> },
      { id: 'layout', label: 'Layout', icon: <IconLayout /> },
      { id: 'themes', label: 'Themes', icon: <IconThemes /> },
    ];
@@ -971,15 +1361,17 @@ function App() {
     if (!vis) return null;
     const inline = getWidgetInlineStyle(widgetKey);
     const isEditing = activeWidgetSettings === widgetKey;
+    const isSelected = selectedWidget === widgetKey;
     const ws = theme.widgetStyles[widgetKey] || {};
+    const scale = widgetScales[widgetKey];
 
     return (
       <div
         key={widgetKey}
         data-widget={widgetKey}
-        className={`widget-wrapper ${editLayoutMode ? 'edit-mode' : ''} ${uiHidden && widgetKey !== 'clock' && widgetKey !== 'date' && widgetKey !== 'weather' ? 'ui-hideable' : ''} ${className}`}
-        style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...inline }}
-        onMouseDown={(e) => startDrag(e, widgetKey)}
+        className={`widget-wrapper ${editLayoutMode ? 'edit-mode' : ''} ${isSelected ? 'selected' : ''} ${uiHidden && widgetKey !== 'clock' && widgetKey !== 'date' && widgetKey !== 'weather' ? 'ui-hideable' : ''} ${className}`}
+        style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...inline, transform: `translate(-50%, -50%)${scale ? ` scale(${scale})` : ''}` }}
+        onMouseDown={(e) => { if (editLayoutMode) { e.stopPropagation(); setSelectedWidget(widgetKey); startDrag(e, widgetKey); } }}
       >
         {editLayoutMode && (
           <div className="widget-edit-bar">
@@ -991,85 +1383,42 @@ function App() {
             </button>
           </div>
         )}
+        {isSelected && editLayoutMode && (
+          <>
+            <div className="resize-handle resize-nw" onMouseDown={(e) => startResize(e, widgetKey, 'nw')} />
+            <div className="resize-handle resize-ne" onMouseDown={(e) => startResize(e, widgetKey, 'ne')} />
+            <div className="resize-handle resize-sw" onMouseDown={(e) => startResize(e, widgetKey, 'sw')} />
+            <div className="resize-handle resize-se" onMouseDown={(e) => startResize(e, widgetKey, 'se')} />
+          </>
+        )}
         {isEditing && editLayoutMode && (
           <div className="widget-settings-popover" ref={widgetSettingsRef} onClick={(e) => e.stopPropagation()}>
             <div className="widget-settings-header">
-              <span>{widgetKey.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())} Settings</span>
+              <span>{widgetKey.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
               <button className="widget-settings-close" onClick={() => setActiveWidgetSettings(null)}><IconX /></button>
             </div>
             <div className="widget-settings-body">
               <div className="widget-settings-field">
-                <label>Font Size</label>
-                <input type="text" value={ws.fontSize || ''} placeholder="e.g. 1.2rem" onChange={(e) => updateWidgetStyle(widgetKey, { fontSize: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
                 <label>Color</label>
-                <input type="color" value={ws.color || theme.textPrimary} onChange={(e) => updateWidgetStyle(widgetKey, { color: e.target.value })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Opacity</label>
-                <div className="slider-row">
-                  <input type="range" min="0" max="1" step="0.05" value={ws.opacity ?? 1} onChange={(e) => updateWidgetStyle(widgetKey, { opacity: parseFloat(e.target.value) })} className="slider" />
-                  <span className="slider-value">{Math.round((ws.opacity ?? 1) * 100)}%</span>
+                <div className="color-row">
+                  <input type="color" value={ws.color || theme.textPrimary} onChange={(e) => updateWidgetStyle(widgetKey, { color: e.target.value })} />
+                  <input type="text" value={ws.color || ''} onChange={(e) => updateWidgetStyle(widgetKey, { color: e.target.value || undefined })} className="color-text" placeholder="inherit" />
                 </div>
               </div>
               <div className="widget-settings-field">
-                <label>Scale</label>
-                <div className="slider-row">
-                  <input type="range" min="0.5" max="2" step="0.05" value={ws.scale ?? 1} onChange={(e) => updateWidgetStyle(widgetKey, { scale: parseFloat(e.target.value) })} className="slider" />
-                  <span className="slider-value">{(ws.scale ?? 1).toFixed(2)}x</span>
+                <label>Font Size</label>
+                <input type="text" value={ws.fontSize || ''} onChange={(e) => updateWidgetStyle(widgetKey, { fontSize: e.target.value || undefined })} placeholder="e.g. 1.2rem or 24px" />
+              </div>
+              {widgetKey === 'clock' && (
+                <div className="widget-settings-field">
+                  <label>Clock Animation</label>
+                  <div className="toggle-row">
+                    <button className={`toggle-btn ${(!ws.textShadow || !ws.textShadow.includes('glow')) ? 'active' : ''}`} onClick={() => updateWidgetStyle(widgetKey, { textShadow: undefined })}>None</button>
+                    <button className={`toggle-btn ${ws.textShadow?.includes('glow') ? 'active' : ''}`} onClick={() => updateWidgetStyle(widgetKey, { textShadow: '0 0 20px rgba(255,255,255,0.15)' })}>Glow</button>
+                  </div>
                 </div>
-              </div>
-              <div className="widget-settings-field">
-                <label>Padding</label>
-                <input type="text" value={ws.padding || ''} placeholder="e.g. 14px 22px" onChange={(e) => updateWidgetStyle(widgetKey, { padding: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Gap</label>
-                <input type="text" value={ws.gap || ''} placeholder="e.g. 12px" onChange={(e) => updateWidgetStyle(widgetKey, { gap: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Border Radius</label>
-                <div className="slider-row">
-                  <input type="range" min="0" max="40" value={ws.borderRadius ?? theme.radius} onChange={(e) => updateWidgetStyle(widgetKey, { borderRadius: parseInt(e.target.value) })} className="slider" />
-                  <span className="slider-value">{ws.borderRadius ?? theme.radius}px</span>
-                </div>
-              </div>
-              <div className="widget-settings-field">
-                <label>Background</label>
-                <input type="text" value={ws.background || ''} placeholder="e.g. rgba(0,0,0,0.5)" onChange={(e) => updateWidgetStyle(widgetKey, { background: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Border Color</label>
-                <input type="text" value={ws.borderColor || ''} placeholder="e.g. rgba(255,255,255,0.1)" onChange={(e) => updateWidgetStyle(widgetKey, { borderColor: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Backdrop Blur</label>
-                <div className="slider-row">
-                  <input type="range" min="0" max="60" value={ws.backdropBlur ?? theme.panelBlur} onChange={(e) => updateWidgetStyle(widgetKey, { backdropBlur: parseInt(e.target.value) })} className="slider" />
-                  <span className="slider-value">{ws.backdropBlur ?? theme.panelBlur}px</span>
-                </div>
-              </div>
-              <div className="widget-settings-field">
-                <label>Font Weight</label>
-                <div className="slider-row">
-                  <input type="range" min="100" max="900" step="100" value={ws.fontWeight ?? 400} onChange={(e) => updateWidgetStyle(widgetKey, { fontWeight: parseInt(e.target.value) })} className="slider" />
-                  <span className="slider-value">{ws.fontWeight ?? 400}</span>
-                </div>
-              </div>
-              <div className="widget-settings-field">
-                <label>Letter Spacing</label>
-                <input type="text" value={ws.letterSpacing || ''} placeholder="e.g. 0.02em" onChange={(e) => updateWidgetStyle(widgetKey, { letterSpacing: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Text Shadow</label>
-                <input type="text" value={ws.textShadow || ''} placeholder="e.g. 0 2px 8px rgba(0,0,0,0.5)" onChange={(e) => updateWidgetStyle(widgetKey, { textShadow: e.target.value || undefined })} />
-              </div>
-              <div className="widget-settings-field">
-                <label>Line Height</label>
-                <input type="text" value={ws.lineHeight || ''} placeholder="e.g. 1.4" onChange={(e) => updateWidgetStyle(widgetKey, { lineHeight: e.target.value || undefined })} />
-              </div>
-              <button className="btn-link" onClick={() => updateWidgetStyle(widgetKey, {})}>Reset Widget Styles</button>
+              )}
+              <button className="btn-link small" onClick={() => updateWidgetStyle(widgetKey, {})}>Reset</button>
             </div>
           </div>
         )}
@@ -1082,7 +1431,7 @@ function App() {
      RENDER
      ========================================================== */
   return (
-    <div className={`app ${focusMode ? 'focus-mode' : ''} ${uiHidden ? 'ui-hidden' : ''}`}>
+    <div className={`app ${uiHidden ? 'ui-hidden' : ''}`}>
       {/* Background */}
       {backgroundType === 'youtube' && youtubeSrc && (
         <div className="video-bg">
@@ -1148,7 +1497,7 @@ function App() {
 
         {/* Calendar */}
         {renderWidget("calendar",
-          calendarEvent && !focusMode && (
+          calendarEvent && (
             <div className="glass-panel calendar-widget">
               <IconCalendar />
               <span className="calendar-text">{calendarEvent}</span>
@@ -1159,9 +1508,6 @@ function App() {
         {/* Settings Buttons */}
         {renderWidget("settingsButtons",
           <div className="settings-buttons-row">
-            <button className="glass-icon-btn" onClick={toggleFocusMode} title="Toggle Focus Mode (⌘F)">
-              {focusMode ? <IconFocusOff /> : <IconFocus />}
-            </button>
             <button className="glass-icon-btn" onClick={() => { setEditLayoutMode((m) => !m); setActiveWidgetSettings(null); }} title="Toggle Layout Editor (⌘E)">
               {editLayoutMode ? <IconCheck /> : <IconLayout />}
             </button>
@@ -1190,7 +1536,7 @@ function App() {
 
         {/* Now Playing */}
         {renderWidget("nowPlaying",
-          nowPlaying && !focusMode && (
+          nowPlaying && (
             <div className="glass-panel now-playing-widget">
               <IconMusic />
               <span className="np-text">{nowPlaying}</span>
@@ -1219,6 +1565,16 @@ function App() {
             <button className="glass-icon-btn" onClick={() => setShowTimer((s) => !s)} title="Toggle Timer">
               <IconTimer />
             </button>
+          </div>
+        )}
+
+        {/* Resize Overlay */}
+        {editLayoutMode && selectedWidget && (
+          <div className="resize-overlay" ref={resizeOverlayRef}>
+            <div className="resize-handle resize-nw" onMouseDown={(e) => startResize(e, selectedWidget, 'nw')} />
+            <div className="resize-handle resize-ne" onMouseDown={(e) => startResize(e, selectedWidget, 'ne')} />
+            <div className="resize-handle resize-sw" onMouseDown={(e) => startResize(e, selectedWidget, 'sw')} />
+            <div className="resize-handle resize-se" onMouseDown={(e) => startResize(e, selectedWidget, 'se')} />
           </div>
         )}
       </div>
@@ -1349,6 +1705,45 @@ function App() {
                       </div>
                     </>
                   )}
+
+                  <div className="settings-field">
+                    <label>Browse Wallpapers</label>
+                    <div className="wallpaper-grid">
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:nature/')}>
+                        <span className="wallpaper-card-emoji">🌿</span>
+                        <span className="wallpaper-card-label">Nature</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:space/')}>
+                        <span className="wallpaper-card-emoji">🌌</span>
+                        <span className="wallpaper-card-label">Space</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:cyberpunk/')}>
+                        <span className="wallpaper-card-emoji">🌃</span>
+                        <span className="wallpaper-card-label">Cyberpunk</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:rain/')}>
+                        <span className="wallpaper-card-emoji">🌧️</span>
+                        <span className="wallpaper-card-label">Rain</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:anime/')}>
+                        <span className="wallpaper-card-emoji">🎌</span>
+                        <span className="wallpaper-card-label">Anime</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:car/')}>
+                        <span className="wallpaper-card-emoji">🏎️</span>
+                        <span className="wallpaper-card-label">Cars</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/tag:games/')}>
+                        <span className="wallpaper-card-emoji">🎮</span>
+                        <span className="wallpaper-card-label">Games</span>
+                      </button>
+                      <button className="wallpaper-card" onClick={() => openUrl('https://motionbgs.com/4k/')}>
+                        <span className="wallpaper-card-emoji">✨</span>
+                        <span className="wallpaper-card-label">All 4K</span>
+                      </button>
+                    </div>
+                    <p className="hint">Browse 8900+ free animated wallpapers on motionbgs.com. Copy a video URL and paste it above.</p>
+                  </div>
                 </div>
               )}
 
@@ -1533,7 +1928,7 @@ function App() {
                   <h3>Appearance</h3>
 
                   <div className="settings-field">
-                    <label>Background Color</label>
+                    <label>Background</label>
                     <div className="color-row">
                       <input type="color" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} />
                       <input type="text" value={theme.bgDeep} onChange={(e) => setTheme((t) => ({ ...t, bgDeep: e.target.value }))} className="color-text" />
@@ -1553,19 +1948,25 @@ function App() {
                         <input type="color" value={theme.bgSecondary} onChange={(e) => setTheme((t) => ({ ...t, bgSecondary: e.target.value }))} />
                         <input type="text" value={theme.bgSecondary} onChange={(e) => setTheme((t) => ({ ...t, bgSecondary: e.target.value }))} className="color-text" />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label>Glass</label>
+                    <div className="color-grid">
                       <div className="color-item">
-                        <span>Glass BG</span>
+                        <span>Background</span>
                         <input type="text" value={theme.glassBg} onChange={(e) => setTheme((t) => ({ ...t, glassBg: e.target.value }))} className="color-text full" />
                       </div>
                       <div className="color-item">
-                        <span>Glass Border</span>
+                        <span>Border</span>
                         <input type="text" value={theme.glassBorder} onChange={(e) => setTheme((t) => ({ ...t, glassBorder: e.target.value }))} className="color-text full" />
                       </div>
                     </div>
                   </div>
 
                   <div className="settings-field">
-                    <label>Text Colors</label>
+                    <label>Text</label>
                     <div className="color-grid">
                       <div className="color-item">
                         <span>Primary</span>
@@ -1577,24 +1978,19 @@ function App() {
                         <input type="color" value={theme.textSecondary} onChange={(e) => setTheme((t) => ({ ...t, textSecondary: e.target.value }))} />
                         <input type="text" value={theme.textSecondary} onChange={(e) => setTheme((t) => ({ ...t, textSecondary: e.target.value }))} className="color-text" />
                       </div>
-                      <div className="color-item">
-                        <span>Dim</span>
-                        <input type="color" value={theme.textDim} onChange={(e) => setTheme((t) => ({ ...t, textDim: e.target.value }))} />
-                        <input type="text" value={theme.textDim} onChange={(e) => setTheme((t) => ({ ...t, textDim: e.target.value }))} className="color-text" />
-                      </div>
                     </div>
                   </div>
 
                   <div className="settings-field">
-                    <label>Accent Colors</label>
+                    <label>Accent</label>
                     <div className="color-grid">
                       <div className="color-item">
-                        <span>Accent</span>
+                        <span>Color</span>
                         <input type="color" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value }))} />
                         <input type="text" value={theme.accent} onChange={(e) => setTheme((t) => ({ ...t, accent: e.target.value }))} className="color-text" />
                       </div>
                       <div className="color-item">
-                        <span>Accent Hover</span>
+                        <span>Hover</span>
                         <input type="color" value={theme.accentHover} onChange={(e) => setTheme((t) => ({ ...t, accentHover: e.target.value }))} />
                         <input type="text" value={theme.accentHover} onChange={(e) => setTheme((t) => ({ ...t, accentHover: e.target.value }))} className="color-text" />
                       </div>
@@ -1607,148 +2003,18 @@ function App() {
                       <div className="slider-row"><span className="slider-label">Opacity</span><input type="range" min="0" max="1" step="0.05" value={theme.bgOverlayOpacity} onChange={(e) => setTheme((t) => ({ ...t, bgOverlayOpacity: parseFloat(e.target.value) }))} className="slider" /><span className="slider-value">{Math.round(theme.bgOverlayOpacity * 100)}%</span></div>
                       <div className="slider-row"><span className="slider-label">Blur</span><input type="range" min="0" max="20" value={theme.bgOverlayBlur} onChange={(e) => setTheme((t) => ({ ...t, bgOverlayBlur: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.bgOverlayBlur}px</span></div>
                     </div>
-                    <p className="hint">Controls the dark overlay on YouTube, image, and video backgrounds. Set to 0 for no overlay.</p>
                   </div>
 
                   <div className="settings-field">
-                    <label>Panel Styling</label>
+                    <label>Panel</label>
                     <div className="theme-sliders">
                       <div className="slider-row"><span className="slider-label">Blur</span><input type="range" min="0" max="60" value={theme.panelBlur} onChange={(e) => setTheme((t) => ({ ...t, panelBlur: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.panelBlur}px</span></div>
                       <div className="slider-row"><span className="slider-label">Radius</span><input type="range" min="0" max="40" value={theme.radius} onChange={(e) => setTheme((t) => ({ ...t, radius: parseInt(e.target.value) }))} className="slider" /><span className="slider-value">{theme.radius}px</span></div>
+                      <div className="slider-row"><span className="slider-label">Clock</span><input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" /><span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span></div>
                     </div>
                   </div>
 
-                  <div className="settings-field">
-                    <label>Typography</label>
-                    <div className="settings-field">
-                      <label>Font Family</label>
-                      <input type="text" value={theme.fontFamily} onChange={(e) => setTheme((t) => ({ ...t, fontFamily: e.target.value }))} placeholder="e.g. 'Inter', sans-serif" />
-                    </div>
-                    <div className="settings-field">
-                      <label>Base Font Size</label>
-                      <input type="text" value={theme.fontSizeBase} onChange={(e) => setTheme((t) => ({ ...t, fontSizeBase: e.target.value }))} placeholder="e.g. 16px" />
-                    </div>
-                    <div className="slider-row"><span className="slider-label">Clock Size</span><input type="range" min="3" max="12" step="0.5" value={parseFloat(theme.clockSize.match(/[\d.]+/)?.[0] || '5.5')} onChange={(e) => setTheme((t) => ({ ...t, clockSize: `clamp(${e.target.value}rem, ${(parseFloat(e.target.value) * 2.3).toFixed(1)}vw, ${(parseFloat(e.target.value) * 1.7).toFixed(1)}rem)` }))} className="slider" /><span className="slider-value">{theme.clockSize.match(/[\d.]+/)?.[0]}rem</span></div>
-                  </div>
-
-                  <div className="settings-field">
-                    <label>Widget Spacing</label>
-                    <div className="settings-field">
-                      <label>Widget Gap</label>
-                      <input type="text" value={theme.widgetGap} onChange={(e) => setTheme((t) => ({ ...t, widgetGap: e.target.value }))} placeholder="e.g. 12px" />
-                    </div>
-                    <div className="settings-field">
-                      <label>Widget Padding</label>
-                      <input type="text" value={theme.widgetPadding} onChange={(e) => setTheme((t) => ({ ...t, widgetPadding: e.target.value }))} placeholder="e.g. 16px 24px" />
-                    </div>
-                  </div>
-
-                  <div className="settings-field">
-                    <label>Custom CSS</label>
-                    <textarea className="custom-css-textarea" value={theme.customCss} onChange={(e) => setTheme((t) => ({ ...t, customCss: e.target.value }))} rows={8} placeholder="/* Write custom CSS here */" />
-                    <p className="hint">Custom CSS is injected globally. Use selectors like [data-widget=&quot;clock&quot;] to target widgets.</p>
-                  </div>
-
-                  <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset to default theme</button>
-                </div>
-              )}
-
-              {/* WIDGETS */}
-              {settingsTab === 'widgets' && (
-                <div className="settings-section">
-                  <h3>Widgets</h3>
-                  <p className="hint">Configure each widget's appearance. Changes apply immediately.</p>
-
-                  {(Object.keys(visibility) as Array<keyof Visibility>).map((key) => {
-                    const ws = theme.widgetStyles[key] || {};
-                    return (
-                      <div key={key} className="widget-config-card">
-                        <div className="widget-config-header">
-                          <span className="widget-config-name">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
-                          <button className={`visibility-chip ${visibility[key] ? 'active' : ''}`} onClick={() => setVisibility((v) => ({ ...v, [key]: !v[key] }))}>
-                            {visibility[key] ? <IconEye /> : <IconEyeOff />}
-                          </button>
-                        </div>
-                        <div className="widget-config-body">
-                          <div className="widget-config-row">
-                            <label>Color</label>
-                            <div className="color-row">
-                              <input type="color" value={ws.color || theme.textPrimary} onChange={(e) => updateWidgetStyle(key, { color: e.target.value })} />
-                              <input type="text" value={ws.color || ''} onChange={(e) => updateWidgetStyle(key, { color: e.target.value || undefined })} className="color-text" placeholder="inherit" />
-                            </div>
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Font Size</label>
-                            <input type="text" value={ws.fontSize || ''} onChange={(e) => updateWidgetStyle(key, { fontSize: e.target.value || undefined })} placeholder="auto" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Font Weight</label>
-                            <div className="slider-row">
-                              <input type="range" min="100" max="900" step="100" value={ws.fontWeight ?? 400} onChange={(e) => updateWidgetStyle(key, { fontWeight: parseInt(e.target.value) })} className="slider" />
-                              <span className="slider-value">{ws.fontWeight ?? 400}</span>
-                            </div>
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Opacity</label>
-                            <div className="slider-row">
-                              <input type="range" min="0" max="1" step="0.05" value={ws.opacity ?? 1} onChange={(e) => updateWidgetStyle(key, { opacity: parseFloat(e.target.value) })} className="slider" />
-                              <span className="slider-value">{Math.round((ws.opacity ?? 1) * 100)}%</span>
-                            </div>
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Scale</label>
-                            <div className="slider-row">
-                              <input type="range" min="0.5" max="2" step="0.05" value={ws.scale ?? 1} onChange={(e) => updateWidgetStyle(key, { scale: parseFloat(e.target.value) })} className="slider" />
-                              <span className="slider-value">{(ws.scale ?? 1).toFixed(2)}x</span>
-                            </div>
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Border Radius</label>
-                            <div className="slider-row">
-                              <input type="range" min="0" max="40" value={ws.borderRadius ?? theme.radius} onChange={(e) => updateWidgetStyle(key, { borderRadius: parseInt(e.target.value) })} className="slider" />
-                              <span className="slider-value">{ws.borderRadius ?? theme.radius}px</span>
-                            </div>
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Backdrop Blur</label>
-                            <div className="slider-row">
-                              <input type="range" min="0" max="60" value={ws.backdropBlur ?? theme.panelBlur} onChange={(e) => updateWidgetStyle(key, { backdropBlur: parseInt(e.target.value) })} className="slider" />
-                              <span className="slider-value">{ws.backdropBlur ?? theme.panelBlur}px</span>
-                            </div>
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Background</label>
-                            <input type="text" value={ws.background || ''} onChange={(e) => updateWidgetStyle(key, { background: e.target.value || undefined })} placeholder="inherit" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Border Color</label>
-                            <input type="text" value={ws.borderColor || ''} onChange={(e) => updateWidgetStyle(key, { borderColor: e.target.value || undefined })} placeholder="inherit" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Padding</label>
-                            <input type="text" value={ws.padding || ''} onChange={(e) => updateWidgetStyle(key, { padding: e.target.value || undefined })} placeholder="inherit" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Gap</label>
-                            <input type="text" value={ws.gap || ''} onChange={(e) => updateWidgetStyle(key, { gap: e.target.value || undefined })} placeholder="inherit" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Letter Spacing</label>
-                            <input type="text" value={ws.letterSpacing || ''} onChange={(e) => updateWidgetStyle(key, { letterSpacing: e.target.value || undefined })} placeholder="normal" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Text Shadow</label>
-                            <input type="text" value={ws.textShadow || ''} onChange={(e) => updateWidgetStyle(key, { textShadow: e.target.value || undefined })} placeholder="none" />
-                          </div>
-                          <div className="widget-config-row">
-                            <label>Line Height</label>
-                            <input type="text" value={ws.lineHeight || ''} onChange={(e) => updateWidgetStyle(key, { lineHeight: e.target.value || undefined })} placeholder="normal" />
-                          </div>
-                          <button className="btn-link small" onClick={() => updateWidgetStyle(key, {})}>Reset Styles</button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <button className="btn-link" onClick={() => setTheme(DEFAULT_THEME)}>Reset theme</button>
                 </div>
               )}
 

@@ -119,14 +119,17 @@ html, body, #root {
 
 .widget-wrapper {
   position: absolute;
-  transform: translate(-50%, -50%);
   z-index: 2;
-  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.widget-wrapper.edit-mode {
+  transition: none;
 }
 
 .ui-hidden .widget-wrapper.ui-hideable {
   opacity: 0;
-  transform: translate(-50%, calc(-50% + 10px));
+  transform: translate(-50%, calc(-50% + 10px)) !important;
   pointer-events: none;
 }
 
@@ -190,12 +193,6 @@ html, body, #root {
   font-weight: 100;
   color: var(--text-primary);
   margin: 0 0.02em;
-  animation: sep-pulse 2s ease-in-out infinite;
-}
-
-@keyframes sep-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
 }
 
 /* ==================== DATE ==================== */
@@ -453,14 +450,6 @@ html, body, #root {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--glass-border-hover);
   color: var(--text-primary);
-}
-
-/* ==================== FOCUS MODE ==================== */
-
-.focus-mode .calendar-widget,
-.focus-mode .now-playing-widget {
-  opacity: 0;
-  pointer-events: none;
 }
 
 /* ==================== DRAGGABLE SETTINGS WINDOW ==================== */
@@ -1275,6 +1264,35 @@ html, body, #root {
   cursor: grabbing;
 }
 
+.widget-wrapper.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  z-index: 15;
+}
+
+.resize-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 100;
+  border: 1px solid var(--accent);
+}
+
+.resize-overlay .resize-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border: 2px solid var(--bg-deep);
+  border-radius: 4px;
+  pointer-events: auto;
+  z-index: 101;
+}
+
+.resize-overlay .resize-handle.resize-nw { top: -10px; left: -10px; cursor: nw-resize; }
+.resize-overlay .resize-handle.resize-ne { top: -10px; right: -10px; cursor: ne-resize; }
+.resize-overlay .resize-handle.resize-sw { bottom: -10px; left: -10px; cursor: sw-resize; }
+.resize-overlay .resize-handle.resize-se { bottom: -10px; right: -10px; cursor: se-resize; }
+
 .widget-edit-bar {
   position: absolute;
   top: -14px;
@@ -1479,4 +1497,45 @@ html, body, #root {
 .settings-window-content::-webkit-scrollbar-thumb:hover,
 .widget-settings-popover::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* ==================== WALLPAPER GRID ==================== */
+
+.wallpaper-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.wallpaper-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-body);
+}
+
+.wallpaper-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+}
+
+.wallpaper-card-emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.wallpaper-card-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
